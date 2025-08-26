@@ -1,0 +1,51 @@
+cmake_minimum_required(VERSION 3.10)
+project(EntropyAnalysisTool LANGUAGES C CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+
+# Include directories
+include_directories(
+    ${PROJECT_SOURCE_DIR}/include
+    ${PROJECT_SOURCE_DIR}/third_party
+    third_party/imgui
+    third_party/imgui/backends
+    third_party/implot
+    third_party/nlohmann
+)
+
+set (SOURCES
+    main.cpp
+    src/gui_platform/gui_platform.cpp
+    src/core/application.cpp
+    src/data/data_manager.cpp
+    src/ui/ui_manager.cpp
+    src/file_utils/file_utils.cpp
+)
+
+file(GLOB IMGUI_SOURCES
+    "third_party/imgui/*.cpp"
+    "third_party/imgui/backends/*.cpp"
+)
+
+file(GLOB IMPLOT_SOURCES
+    "third_party/implot/*.cpp"
+)
+
+file(GLOB NLOHMANN_JSON_SOURCES
+    "third_party/nlohmann/*.hpp"
+)
+
+add_executable(${PROJECT_NAME} 
+    ${SOURCES} 
+    ${IMGUI_SOURCES} 
+    ${IMPLOT_SOURCES} 
+    ${NLOHMANN_JSON_SOURCES} 
+    assets/resources.rc
+) 
+
+target_link_libraries(${PROJECT_NAME} PRIVATE 
+    d3d11 
+    d3dcompiler 
+    dxguid 
+    dwmapi
+)

@@ -1,0 +1,2 @@
+// resources.rc
+IDI_APP_ICON ICON "icon/FIPS-ProjectManager-Icon.ico"
