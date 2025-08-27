@@ -13,21 +13,12 @@ namespace fs = std::filesystem;
 bool Application::Initialize() {
     fs::path baseDir = fs::current_path();
 
-    if (!dataManager.Initialize()) {
+    if (!dataManager.Initialize(&config, &currentProject)) {
         std::cerr << "Failed to initialize data manager" << std::endl;
         return false;
     }
 
-    config = dataManager.loadAppConfig("../../data/app.json");
-
-    if (!config.lastOpenedProject.path.empty()) {
-        if (!LoadProject(config.lastOpenedProject.path)) {
-            std::cerr << "Failed to load last opened project" << std::endl;
-            return false;
-        }
-    }
-
-    if (!uiManager.Initialize(&dataManager)) {
+    if (!uiManager.Initialize(&dataManager, &config, &currentProject)) {
         std::cerr << "Failed to initialize ui manager" << std::endl;
         return false;
     }
@@ -40,66 +31,23 @@ bool Application::Initialize() {
 }
 
 void Application::Update() {
-
+    AppCommand cmd;
+    while (commandQueue.Pop(cmd)) {
+        std::visit([this](auto&& command) {
+            using T = std::decay_t<decltype(command)>;
+            if constexpr (std::is_same_v<T, NewProjectCommand>) {
+                NewProject(command);
+            } else if constexpr (std::is_same_v<T, OpenProjectCommand>) {
+                LoadProject(command.filePath);
+            } else if constexpr (std::is_same_v<T, SaveProjectCommand>) {
+                SaveProject();
+            }
+        }, cmd);
+    }
 }
 
 void Application::Render() {
-    uiManager.RenderMenuBar();
-    uiManager.RenderMainWindow(activeTab, currentProject);
-    uiManager.RenderHelpWindow(show_help_window);
-
-    if (uiState.newProjectPopupOpen) {
-        auto vendors = dataManager.GetVendorList();
-        uiState.newProjectFormResult = uiManager.RenderNewProjectPopup(vendors);
-
-        if (uiState.newProjectFormResult.submitted) {
-            // Create project
-            fs::path projectFile = dataManager.NewProject(
-                uiState.newProjectFormResult.vendor,
-                uiState.newProjectFormResult.repo,
-                uiState.newProjectFormResult.projectName
-            );
-
-            // Load project into application
-            if (!LoadProject(projectFile.string())) {
-                std::cerr << "Failed to load new project!" << std::endl;
-            }
-
-            uiState.newProjectPopupOpen = false; // popup closes on success
-        }
-    }
-
-    // --- Load Project Popup ---
-    if (uiState.loadProjectPopupOpen) {
-        auto savedProjects = config.savedProjects; // pass saved projects from config
-        uiState.loadProjectFormResult = uiManager.RenderLoadProjectPopup(savedProjects);
-
-        if (uiState.loadProjectFormResult.submitted) {
-            OpenProject(uiState.loadProjectFormResult.filePath);
-            uiState.loadProjectPopupOpen = false;
-        }
-    }
-
-    // Handle save request
-    if (uiState.saveProjectRequested && !currentProject.name.empty()) {
-        dataManager.SaveProject(currentProject, config);
-        uiState.saveProjectRequested = false;
-        uiState.showSaveNotification = true;
-        uiState.saveNotificationTimer = 3.0f; // show for 3 seconds
-    }
-
-    // Render save notification
-    if (uiState.showSaveNotification) {
-        ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_Always);
-        ImGui::Begin("Save Notification", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize);
-        ImGui::Text("Project saved!");
-        ImGui::End();
-
-        uiState.saveNotificationTimer -= ImGui::GetIO().DeltaTime;
-        if (uiState.saveNotificationTimer <= 0.0f) {
-            uiState.showSaveNotification = false;
-        }
-    }
+    uiManager.Render();
 }
 
 void Application::Shutdown() {
@@ -112,11 +60,22 @@ void Application::Shutdown() {
     }
 }
 
-void Application::SaveProject() {
-    dataManager.SaveProject(currentProject, config);
+void Application::NewProject(const NewProjectCommand& formResult) {
+    // Create project via DataManager
+    fs::path projectFile = dataManager.NewProject(formResult.vendor, formResult.repo, formResult.projectName);
+
+    if (projectFile.empty()) {
+        std::cerr << "New project file name is empty!" << std::endl;
+        return;
+    }
+
+    // Open project
+    if (!LoadProject(projectFile.string())) {
+        std::cerr << "Failed to open new project!" << std::endl;
+    }
 }
 
-bool Application::OpenProject(const std::string& filePath) {
+bool Application::LoadProject(const std::string& filePath) {
     if (filePath.empty()) return false;
 
     // Save current project before switching
@@ -142,39 +101,12 @@ bool Application::OpenProject(const std::string& filePath) {
     return true;
 }
 
-void Application::NewProject() {
-    auto vendors = dataManager.GetVendorList();
-
-    // Render popup and get user input
-    auto formResult = uiManager.RenderNewProjectPopup(vendors);
-
-    if (formResult.submitted) {
-        // Create project via DataManager
-        fs::path projectFile = dataManager.NewProject(formResult.vendor, formResult.repo, formResult.projectName);
-
-        // Load project
-        if (!LoadProject(projectFile.string())) {
-            std::cerr << "Failed to load new project!" << std::endl;
-        }
-    }
-}
-
-bool Application::LoadProject(const std::string& filename) {
-    if (filename.empty()) return false;
-
-    Project loadedProject = dataManager.LoadProject(filename);
-
-    if (loadedProject.name.empty()) {
-        return false;
-    }
-
-    currentProject = loadedProject;
-
-    return true;
+void Application::SaveProject() {
+    dataManager.SaveProject(currentProject, config);
 }
 
 void Application::ShowHelp() {
-    show_help_window = !show_help_window;
+    //show_help_window = !show_help_window;
 }
 
 void Application::SetupImGuiStyle() {

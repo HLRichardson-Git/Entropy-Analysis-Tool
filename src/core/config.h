@@ -47,5 +47,6 @@ namespace Config {
         const char* APPLICATION_VERSION = "0.1.0";
         Project lastOpenedProject;
         std::vector<Project> savedProjects;
+        std::vector<std::string> vendorsList;
     };
 }

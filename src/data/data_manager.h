@@ -20,13 +20,17 @@ public:
     ~DataManager() = default;
     
     // Initialization
-    bool Initialize();
+    bool Initialize(Config::AppConfig* config, Project* currentProjects);
+
+    // Config
     Config::AppConfig loadAppConfig(const std::string& filePath);
     void saveAppConfig(const std::string& filePath, const Config::AppConfig& config);
-    std::vector<std::string> GetVendorList();
     
     // Project management
+    fs::path NewProject(const std::string& vendor, const std::string& repo, const std::string& projectName);
     Project LoadProject(const std::string& relativePath);
     void DataManager::SaveProject(const Project& project, Config::AppConfig& appConfig);
-    fs::path NewProject(const std::string& vendor, const std::string& repo, const std::string& projectName);
+
+    // Helpers
+    std::vector<std::string> GetVendorList();
 };

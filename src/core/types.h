@@ -3,6 +3,8 @@
 
 #include <string>
 
+#include <imgui.h>
+
 enum class Tabs {
     StatisticalAssessment,
     HeuristicAssessment
@@ -26,6 +28,8 @@ struct LoadProjectFormResult {
 };
 
 struct UIState {
+    Tabs activeTab = Tabs::StatisticalAssessment;
+    
     bool newProjectPopupOpen = false;
     NewProjectFormResult newProjectFormResult;
 
@@ -37,4 +41,10 @@ struct UIState {
     float saveNotificationTimer = 0.0f; // counts down in seconds
 
     bool showHelpWindow = false;
+};
+
+struct Notification {
+    std::string message;
+    float duration;          // seconds left
+    ImVec4 color;            // optional, for type
 };

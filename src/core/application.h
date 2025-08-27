@@ -3,26 +3,25 @@
 
 #include "../data/data_manager.h"
 #include "../ui/ui_manager.h"
+#include "app_command/app_command.h"
 #include "types.h"
 #include "config.h"
 
 class Application {
 private:
     DataManager dataManager;
-    UIState uiState;
-    UIManager uiManager{uiState};
+    CommandQueue commandQueue;
+    UIManager uiManager{commandQueue};
 
     Config::AppConfig config;
     Project currentProject;
-
-    bool show_help_window;
-    Tabs activeTab = Tabs::StatisticalAssessment;
+    std::vector<std::string> vendors;
     
     void SetupImGuiStyle();
     void LoadFonts();
 
 public:
-    Application() : show_help_window(false) {}
+    Application() {}
     ~Application() = default;
     
     // Lifecycle
@@ -31,10 +30,10 @@ public:
     void Render();
     void Shutdown();
     
-    // User actions
+    // Project management
+    void NewProject(const NewProjectCommand& formResult);
+    bool LoadProject(const std::string& filePath);
     void SaveProject();
-    bool OpenProject(const std::string& filePath);
-    void NewProject();
-    bool LoadProject(const std::string& filename);
+
     void ShowHelp();
 };

@@ -17,6 +17,7 @@ set (SOURCES
     main.cpp
     src/gui_platform/gui_platform.cpp
     src/core/application.cpp
+    src/core/app_command/app_command.cpp
     src/data/data_manager.cpp
     src/ui/ui_manager.cpp
     src/file_utils/file_utils.cpp
