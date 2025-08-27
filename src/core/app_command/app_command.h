@@ -1,0 +1,37 @@
+
+#pragma once
+
+#include <string>
+#include <variant>
+#include <queue>
+
+struct OpenProjectCommand {
+    std::string filePath;
+};
+
+struct SaveProjectCommand {
+    // Nothing for now since just saving currently loaded project
+};
+
+struct NewProjectCommand {
+    std::string vendor;
+    std::string repo;
+    std::string projectName;
+};
+
+using AppCommand = std::variant<
+    OpenProjectCommand,
+    SaveProjectCommand,
+    NewProjectCommand
+>;
+
+class CommandQueue {
+private:
+    std::queue<AppCommand> queue;
+
+public:
+    void Push(const AppCommand& cmd);
+    bool Pop(AppCommand& out);
+
+    bool Empty() const { return queue.empty(); }
+};

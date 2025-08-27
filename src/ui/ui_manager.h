@@ -6,34 +6,41 @@
 
 #include "../data/data_manager.h"
 #include "../core/types.h"
+#include "../core/app_command/app_command.h"
 
 class UIManager {
 private:
     DataManager* m_dataManager;
-    UIState& uiState;
+    Config::AppConfig* m_config;
+    Project* m_currentProject;
+
+    UIState uiState;
+    CommandQueue& commandQueue;
+    std::vector<Notification> notifications;
 
 public:
-    bool newProjectRequested = false;
 
-    UIManager(UIState& state) : uiState(state), m_dataManager(nullptr) {}
+    UIManager(CommandQueue& queue) : commandQueue(queue), m_dataManager(nullptr), m_config(nullptr),  m_currentProject(nullptr) {}
     ~UIManager() = default;
     
-    bool Initialize(DataManager* dataManager);
-    void Render(Tabs& activeTab, Project& project);
+    bool Initialize(DataManager* dataManager, Config::AppConfig* config, Project* project);
+    void Render();
 
-    std::function<void()> onNewProject;
-    std::function<void()> onOpenProject;
-    std::function<void()> onSaveProject;
-    std::function<void()> onToggleFullscreen;
-    std::function<void()> onShowHelp;
+    // Main Content
+    void RenderMainWindow();
+    void RenderSidebar();
+    void RenderMainContent();
 
-    void RenderSidebar(Tabs& activeTab, Project& project);
-    void RenderMainContent(Tabs& activeTab, Project& project);
-
+    // Render Utility
     void RenderMenuBar();
-    void RenderMainWindow(Tabs& activeTab, Project& project);
-    void RenderHelpWindow(bool show_help_window);
+    void RenderHelpWindow();
 
-    NewProjectFormResult RenderNewProjectPopup(const std::vector<std::string>& vendors);
-    LoadProjectFormResult RenderLoadProjectPopup(const std::vector<Project>& savedProjects);
+    // Notifications
+    void PushNotification(const std::string& msg, float duration = 3.0f, ImVec4 color = ImVec4(1,1,1,1));
+    void RenderNotifications();
+
+    // Popups
+    void RenderPopups();
+    NewProjectFormResult RenderNewProjectPopup();
+    LoadProjectFormResult RenderLoadProjectPopup();
 };

@@ -12,7 +12,11 @@
 
 using json = nlohmann::json;
 
-bool DataManager::Initialize() {
+bool DataManager::Initialize(Config::AppConfig* config, Project* currentProject) {
+    *config = loadAppConfig("../../data/app.json");
+    if (!config->lastOpenedProject.path.empty()) {
+        *currentProject = LoadProject(config->lastOpenedProject.path);
+    }
 
     return true;
 }
@@ -48,6 +52,8 @@ Config::AppConfig DataManager::loadAppConfig(const std::string& relativePath) {
         std::cerr << "Failed to parse config JSON: " << e.what() << std::endl;
     }
 
+    config.vendorsList = GetVendorList();
+
     return config;
 }
 
@@ -73,17 +79,27 @@ void DataManager::saveAppConfig(const std::string& filePath, const Config::AppCo
     out << j.dump(4);
 }
 
-std::vector<std::string> DataManager::GetVendorList() {
-    std::vector<std::string> vendors;
-    std::ifstream in("../../data/vendorList.json");
-    if (in) {
-        nlohmann::json j;
-        in >> j;
-        for (auto& v : j) {
-            vendors.push_back(v.get<std::string>());
-        }
-    }
-    return vendors;
+fs::path DataManager::NewProject(const std::string& vendor, const std::string& repo, const std::string& projectName) {
+
+    fs::path projectDir = fs::path("../../projects") / vendor / repo / projectName;
+    fs::create_directories(projectDir);
+
+    fs::path projectJsonPath = projectDir / "project.json";
+
+    nlohmann::json projectTemplate;
+    projectTemplate["name"] = projectName;
+    projectTemplate["path"] = fs::relative(projectJsonPath, fs::current_path()).string();
+    projectTemplate["currentTabIndex"] = 0;
+    projectTemplate["hasJentHeuristic"] = true;
+    projectTemplate["operationalEnvironments"] = {
+        {{"name", "OE1"}, {"rawFilePath", "raw_data_oe1.bin"}, {"restartFilePath", "restart_data_oe1.bin"}, {"minEntropy", 0.0}, {"passed", false}},
+        {{"name", "OE2"}, {"rawFilePath", "raw_data_oe2.bin"}, {"restartFilePath", "restart_data_oe2.bin"}, {"minEntropy", 0.0}, {"passed", false}}
+    };
+
+    std::ofstream out(projectJsonPath);
+    out << projectTemplate.dump(4);
+
+    return projectJsonPath;
 }
 
 Project DataManager::LoadProject(const std::string& filename) {
@@ -142,17 +158,6 @@ void DataManager::SaveProject(const Project& project, Config::AppConfig& appConf
         {{"name", "OE2"}, {"rawFilePath", "raw_data_oe2.bin"}, {"restartFilePath", "restart_data_oe2.bin"}, {"minEntropy", 0.0}, {"passed", false}}
     };
 
-    /*projectJson["operationalEnvironments"] = nlohmann::json::array();
-    for (const auto& oe : project.testResults) {
-        nlohmann::json oeJson;
-        oeJson["name"] = oe.oeName;
-        oeJson["rawFilePath"] = oe.rawFilePath;
-        oeJson["restartFilePath"] = oe.restartFilePath;
-        oeJson["minEntropy"] = oe.minEntropy;
-        oeJson["passed"] = oe.passed;
-        projectJson["operationalEnvironments"].push_back(oeJson);
-    }*/
-
     // Write project.json
     std::ofstream out(projectJsonPath);
     if (!out.is_open()) {
@@ -177,25 +182,15 @@ void DataManager::SaveProject(const Project& project, Config::AppConfig& appConf
     saveAppConfig("../../data/app.json", appConfig);
 }
 
-fs::path DataManager::NewProject(const std::string& vendor, const std::string& repo, const std::string& projectName) {
-
-    fs::path projectDir = fs::path("../../projects") / vendor / repo / projectName;
-    fs::create_directories(projectDir);
-
-    fs::path projectJsonPath = projectDir / "project.json";
-
-    nlohmann::json projectTemplate;
-    projectTemplate["name"] = projectName;
-    projectTemplate["path"] = fs::relative(projectJsonPath, fs::current_path()).string();
-    projectTemplate["currentTabIndex"] = 0;
-    projectTemplate["hasJentHeuristic"] = true;
-    projectTemplate["operationalEnvironments"] = {
-        {{"name", "OE1"}, {"rawFilePath", "raw_data_oe1.bin"}, {"restartFilePath", "restart_data_oe1.bin"}, {"minEntropy", 0.0}, {"passed", false}},
-        {{"name", "OE2"}, {"rawFilePath", "raw_data_oe2.bin"}, {"restartFilePath", "restart_data_oe2.bin"}, {"minEntropy", 0.0}, {"passed", false}}
-    };
-
-    std::ofstream out(projectJsonPath);
-    out << projectTemplate.dump(4);
-
-    return projectJsonPath;
+std::vector<std::string> DataManager::GetVendorList() {
+    std::vector<std::string> vendors;
+    std::ifstream in("../../data/vendorList.json");
+    if (in) {
+        nlohmann::json j;
+        in >> j;
+        for (auto& v : j) {
+            vendors.push_back(v.get<std::string>());
+        }
+    }
+    return vendors;
 }
