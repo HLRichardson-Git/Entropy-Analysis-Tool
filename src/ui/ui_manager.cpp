@@ -233,7 +233,7 @@ void UIManager::RenderSidebar() {
             ImVec2 prevAlign = style.ButtonTextAlign;
 
             style.ButtonTextAlign = ImVec2(0.0f, 0.5f); // Set text to left aligned
-            std::string oeNameButton = std::string(u8"\uf1c0") + " " + oe.oeName;
+            std::string oeNameButton = std::string(u8"\uf2db") + " " + oe.oeName;
             if (ImGui::Button(oeNameButton.c_str(), ImVec2(oeButtonWidth, oeButtonHeight))) {
                 uiState.selectedOEIndex = (int)i;
             }
