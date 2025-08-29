@@ -213,54 +213,42 @@ void UIManager::RenderSidebar() {
     ImGui::PopFont();
 
     ImGui::Spacing();
-
-    /* List all OEs in the current project */
-    if (m_currentProject) {
-        float oeCardHeight = 40.0f;
-        for (const auto& oe : m_currentProject->operationalEnvironments) {
-            ImGui::PushStyleColor(ImGuiCol_ChildBg, Config::LIGHT_BACKGROUND_COLOR);
-            ImGui::BeginChild(oe.oeName.c_str(), ImVec2(sidebarWidth, oeCardHeight), true, ImGuiWindowFlags_NoScrollbar);
-            {
-                float padding = 10.0f;
-                float iconColumnWidth = 30.0f;
-                float textColumnWidth = sidebarWidth - iconColumnWidth - 2 * padding;
-
-                ImGui::Columns(2, nullptr, false);
-                ImGui::SetColumnWidth(0, iconColumnWidth);
-
-                /* Left column: Icon (vertically centered) */
-                float cardHeight = ImGui::GetContentRegionAvail().y;
-                float iconYOffset = (cardHeight - ImGui::GetFontSize()) * 0.5f;
-                if (iconYOffset > 0) ImGui::SetCursorPosY(ImGui::GetCursorPosY() + iconYOffset);
-
-                ImGui::SetCursorPosX(10.0f);
-                ImGui::PushFont(Config::fontH3);
-                ImGui::Text(u8"\uf15b"); // File icon
-                ImGui::PopFont();
-
-                /* Right column: OE name (vertically centered) */
-                ImGui::NextColumn();
-                ImGui::SetColumnWidth(1, textColumnWidth);
-
-                cardHeight = ImGui::GetContentRegionAvail().y;
-                float textYOffset = (cardHeight - ImGui::GetTextLineHeight()) * 0.5f;
-                if (textYOffset > 0) ImGui::SetCursorPosY(ImGui::GetCursorPosY() + textYOffset);
-
-                ImGui::PushFont(Config::normal);
-                ImGui::TextWrapped("%s", oe.oeName.c_str());
-                ImGui::PopFont();
-
-                ImGui::Columns(1);
-            }
-            ImGui::EndChild();
-            ImGui::PopStyleColor();
-            ImGui::Spacing();
-        }
-    }
-
+    
     ImGui::PushFont(Config::fontH3);
 
+    float oeButtonHeight = 50.0f;
+    float oeButtonWidth = sidebarWidth * 1.0f;
+
+    for (size_t i = 0; i < m_currentProject->operationalEnvironments.size(); ++i) {
+        const auto& oe = m_currentProject->operationalEnvironments[i];
+        bool isActive = (uiState.selectedOEIndex == (int)i);
+
+        ImVec4 bgColor = isActive ? Config::GREY_BUTTON.hovered : Config::GREY_BUTTON.normal;
+        ImGui::PushStyleColor(ImGuiCol_Button, bgColor);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::GREY_BUTTON.hovered);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, Config::GREY_BUTTON.active);
+        ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_DARK_CHARCOAL);
+        {
+            ImGuiStyle& style = ImGui::GetStyle();
+            ImVec2 prevAlign = style.ButtonTextAlign;
+
+            style.ButtonTextAlign = ImVec2(0.0f, 0.5f); // Set text to left aligned
+            std::string oeNameButton = std::string(u8"\uf1c0") + " " + oe.oeName;
+            if (ImGui::Button(oeNameButton.c_str(), ImVec2(oeButtonWidth, oeButtonHeight))) {
+                uiState.selectedOEIndex = (int)i;
+            }
+            
+            style.ButtonTextAlign = prevAlign; // restore to center aligned
+        }
+        ImGui::PopStyleColor(4);
+
+        ImGui::Spacing();
+    }
+    ImGui::PopFont();
+
     /* Add OE Button */
+    ImGui::PushFont(Config::fontH3);
+
     ImVec2 addOEButtonSize(sidebarWidth * 0.7f, 0);
 
     // Green-style button for Add OE

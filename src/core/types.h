@@ -56,6 +56,8 @@ struct UIState {
     bool addOEPopupOpen = false;
     AddOEFormResult addOEFormResult;
 
+    int selectedOEIndex = -1; // -1 means no OE selected
+
     bool showHelpWindow = false;
 };
 

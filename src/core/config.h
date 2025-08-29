@@ -47,6 +47,20 @@ namespace Config {
     constexpr float TEXT_COLOR[4] = {0.90f, 0.90f, 0.90f, 1.00f};           // Light grey text
     constexpr float CARD_BG_COLOR[4] = {0.18f, 0.18f, 0.18f, 1.00f};        // Card background
 
+    // Font colors
+    inline const ImVec4 TEXT_LIGHT_GREY     = ImVec4(0.90f, 0.90f, 0.90f, 1.0f);
+    inline const ImVec4 TEXT_MUTED_GREY     = ImVec4(0.60f, 0.60f, 0.60f, 1.0f);
+    inline const ImVec4 TEXT_DARK_CHARCOAL  = ImVec4(0.20f, 0.20f, 0.20f, 1.0f);
+    inline const ImVec4 TEXT_BLACK          = ImVec4(0.00f, 0.00f, 0.00f, 1.0f);
+
+    inline const ImVec4 TEXT_BLUE           = ImVec4(0.25f, 0.58f, 0.98f, 1.0f);
+    inline const ImVec4 TEXT_GREEN          = ImVec4(0.20f, 0.80f, 0.20f, 1.0f);
+    inline const ImVec4 TEXT_ORANGE         = ImVec4(0.95f, 0.75f, 0.25f, 1.0f);
+    inline const ImVec4 TEXT_RED            = ImVec4(0.95f, 0.40f, 0.40f, 1.0f);
+    inline const ImVec4 TEXT_CYAN           = ImVec4(0.35f, 0.75f, 0.95f, 1.0f);
+    inline const ImVec4 TEXT_PURPLE         = ImVec4(0.70f, 0.60f, 1.0f, 1.0f);
+
+
     // ImGui theme colors
     struct ButtonPalette {
         ImVec4 normal;
@@ -76,6 +90,30 @@ namespace Config {
         {0.86f, 0.52f, 0.45f, 1.0f},
         {0.76f, 0.42f, 0.35f, 1.0f},
         {0.66f, 0.32f, 0.25f, 1.0f}
+    };
+
+    inline const ButtonPalette BLUE_BUTTON = {
+        {0.68f, 0.85f, 0.90f, 1.0f}, // normal
+        {0.58f, 0.75f, 0.80f, 1.0f}, // hovered
+        {0.48f, 0.65f, 0.70f, 1.0f}  // active
+    };
+
+    inline const ButtonPalette PINK_BUTTON = {
+        {0.96f, 0.80f, 0.87f, 1.0f}, // normal
+        {0.86f, 0.70f, 0.77f, 1.0f}, // hovered
+        {0.76f, 0.60f, 0.67f, 1.0f}  // active
+    };
+
+    inline const ButtonPalette MINT_BUTTON = {
+        {0.74f, 0.93f, 0.82f, 1.0f}, // normal
+        {0.64f, 0.83f, 0.72f, 1.0f}, // hovered
+        {0.54f, 0.73f, 0.62f, 1.0f}  // active
+    };
+
+    inline const ButtonPalette GREY_BUTTON = {
+        {0.85f, 0.85f, 0.85f, 1.0f}, // normal
+        {0.75f, 0.75f, 0.75f, 1.0f}, // hovered
+        {0.65f, 0.65f, 0.65f, 1.0f}  // active
     };
 
     struct AppConfig {
