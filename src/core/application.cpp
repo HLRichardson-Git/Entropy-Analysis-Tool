@@ -37,24 +37,15 @@ void Application::Update() {
             using T = std::decay_t<decltype(command)>;
             if constexpr (std::is_same_v<T, NewProjectCommand>) {
                 NewProject(command);
+                uiManager.OnProjectChanged(currentProject);
             } else if constexpr (std::is_same_v<T, OpenProjectCommand>) {
                 LoadProject(command.filePath);
+                uiManager.OnProjectChanged(currentProject);
             } else if constexpr (std::is_same_v<T, SaveProjectCommand>) {
                 SaveProject();
             } else if constexpr (std::is_same_v<T, AddOECommand>) {
-                // Add new OE to current project
-                if (!currentProject.name.empty()) {
-                    dataManager.AddOEToProject(currentProject, command.oeName, config);
-
-                    // Optional: show a notification
-                    uiManager.PushNotification(
-                        "Added OE: " + command.oeName,
-                        3.0f,
-                        ImVec4(0.0f, 1.0f, 0.0f, 1.0f)
-                    );
-                } else {
-                    std::cerr << "No project loaded — cannot add OE" << std::endl;
-                }
+                dataManager.AddOEToProject(currentProject, command.oeName, config);
+                uiManager.OnProjectChanged(currentProject);
             }
         }, cmd);
     }

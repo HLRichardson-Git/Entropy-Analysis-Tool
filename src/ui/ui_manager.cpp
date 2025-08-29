@@ -246,22 +246,44 @@ void UIManager::RenderSidebar() {
     }
     ImGui::PopFont();
 
-    /* Add OE Button */
+    /* Add OE Button + OE Settings cog */
     ImGui::PushFont(Config::fontH3);
 
-    ImVec2 addOEButtonSize(sidebarWidth * 0.7f, 0);
+    float oeSettingButtonPadding = ImGui::GetStyle().ItemSpacing.x;
+    float addOEWidth = sidebarWidth * 0.7f;
+    float cogWidth = sidebarWidth - addOEWidth - oeSettingButtonPadding;
+    ImVec2 addOEButtonSize(addOEWidth, 0);
+    ImVec2 cogButtonSize(cogWidth, 0);
 
-    // Green-style button for Add OE
+    // Add OE Button (green)
     ImGui::PushStyleColor(ImGuiCol_Button,        Config::GREEN_BUTTON.normal);
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::GREEN_BUTTON.hovered);
     ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREEN_BUTTON.active);
     {
-        std::string addOEButton = std::string(u8"\uf067"); // just the '+' icon
+        std::string addOEButton = std::string(u8"\uf067"); // '+' icon
         if (ImGui::Button(addOEButton.c_str(), addOEButtonSize)) {
             uiState.addOEPopupOpen = true;
         }
     }
     ImGui::PopStyleColor(3);
+
+    // Cog button (blue or grey)
+    ImGui::SameLine(0, oeSettingButtonPadding);
+    ImGui::PushStyleColor(ImGuiCol_Button,        Config::WHITE_BUTTON.normal);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::WHITE_BUTTON.hovered);
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::WHITE_BUTTON.active);
+    ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_DARK_CHARCOAL);
+    {
+        ImGui::BeginDisabled(uiState.selectedOEIndex < 0);
+        std::string cogButton = std::string(u8"\uf013"); // cog icon
+        if (ImGui::Button(cogButton.c_str(), cogButtonSize)) {
+            if (uiState.selectedOEIndex >= 0) {
+                uiState.editOEPopupOpen = true;
+            }
+        }
+        ImGui::EndDisabled();
+    }
+    ImGui::PopStyleColor(4);
 
     ImGui::PopFont();
 
@@ -389,6 +411,22 @@ void UIManager::RenderPopups(){
             AddOECommand cmd { result.oeName };
             commandQueue.Push(std::move(cmd));
         }
+    }
+
+    if (uiState.editOEPopupOpen) {
+        EditOEFormResult result = RenderEditOEPopup();
+
+        /*if (result.submitted) {
+            // Update OE name in the project
+            auto& oe = m_currentProject->operationalEnvironments[uiState.selectedOEIndex];
+            oe.oeName = result.newName;
+
+            // Optionally update project.json / save app config here
+            SaveProjectCommand cmd {};
+            commandQueue.Push(std::move(cmd));
+
+            uiState.editOEPopupOpen = false;
+        }*/
     }
 }
 
@@ -527,7 +565,72 @@ AddOEFormResult UIManager::RenderAddOEPopup() {
     return result;
 }
 
+EditOEFormResult UIManager::RenderEditOEPopup() {
+    EditOEFormResult result;
+
+    // Keep calling OpenPopup every frame until modal is shown
+    if (uiState.editOEPopupOpen) {
+        ImGui::OpenPopup("Edit Operational Environment");
+    }
+
+    if (uiState.selectedOEIndex < 0 || uiState.selectedOEIndex >= (int)m_currentProject->operationalEnvironments.size())
+        return result; // invalid selection
+
+    auto& oe = m_currentProject->operationalEnvironments[uiState.selectedOEIndex];
+
+    // Begin the popup
+    ImGui::SetNextWindowSize(ImVec2(400, 150), ImGuiCond_Appearing);
+    if (ImGui::BeginPopupModal("Edit Operational Environment", nullptr, ImGuiWindowFlags_NoResize)) {
+
+        // Title / info
+        ImGui::Text("Editing OE: %s", oe.oeName.c_str());
+        ImGui::Spacing();
+
+        // Input field for OE name
+        static char oeNameBuffer[256];
+        std::strncpy(oeNameBuffer, oe.oeName.c_str(), sizeof(oeNameBuffer));
+        oeNameBuffer[sizeof(oeNameBuffer) - 1] = '\0';
+        ImGui::InputText("Name", oeNameBuffer, sizeof(oeNameBuffer));
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        // Buttons at the bottom
+        float buttonWidth = 100.0f;
+        if (ImGui::Button("Save", ImVec2(buttonWidth, 0))) {
+            result.submitted = true;
+            result.newName = std::string(oeNameBuffer);
+
+            ImGui::CloseCurrentPopup();
+            uiState.editOEPopupOpen = false;
+            std::fill(std::begin(oeNameBuffer), std::end(oeNameBuffer), 0); // clear input
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel", ImVec2(buttonWidth, 0))) {
+            result.submitted = false;
+
+            ImGui::CloseCurrentPopup();
+            uiState.editOEPopupOpen = false;
+            std::fill(std::begin(oeNameBuffer), std::end(oeNameBuffer), 0); // clear input
+        }
+
+        ImGui::EndPopup();
+    }
+
+    return result;
+}
+
 //UI Elements
 void UIManager::ImGuiSpacing(int count) {
     ImGui::Dummy(ImVec2(0.0f, count * ImGui::GetStyle().ItemSpacing.y));
+}
+
+// Utility
+void UIManager::OnProjectChanged(Project project) {
+    if (!project.operationalEnvironments.empty()) {
+        uiState.selectedOEIndex = 0;
+    } else {
+        uiState.selectedOEIndex = -1;
+    }
 }

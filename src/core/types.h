@@ -40,6 +40,11 @@ struct AddOEFormResult {
     std::string oeName;
 };
 
+struct EditOEFormResult {
+    bool submitted = false;
+    std::string newName;
+};
+
 struct UIState {
     Tabs activeTab = Tabs::StatisticalAssessment;
     
@@ -55,6 +60,8 @@ struct UIState {
 
     bool addOEPopupOpen = false;
     AddOEFormResult addOEFormResult;
+
+    bool editOEPopupOpen = false;
 
     int selectedOEIndex = -1; // -1 means no OE selected
 

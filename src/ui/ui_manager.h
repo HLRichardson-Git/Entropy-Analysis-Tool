@@ -47,4 +47,8 @@ public:
     NewProjectFormResult RenderNewProjectPopup();
     LoadProjectFormResult RenderLoadProjectPopup();
     AddOEFormResult RenderAddOEPopup();
+    EditOEFormResult RenderEditOEPopup();
+
+    // Utility
+    void OnProjectChanged(Project project);
 };

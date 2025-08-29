@@ -68,6 +68,12 @@ namespace Config {
         ImVec4 active;
     };
 
+    inline const ButtonPalette WHITE_BUTTON = {
+        {0.95f, 0.95f, 0.95f, 1.0f}, // normal
+        {0.85f, 0.85f, 0.85f, 1.0f}, // hovered
+        {0.75f, 0.75f, 0.75f, 1.0f}  // active
+    };
+
     inline const ButtonPalette GREEN_BUTTON = {
         {0.0f, 0.78f, 0.58f, 1.0f},
         {0.0f, 0.66f, 0.49f, 1.0f},
