@@ -29,7 +29,8 @@ public:
     // Project management
     fs::path NewProject(const std::string& vendor, const std::string& repo, const std::string& projectName);
     Project LoadProject(const std::string& relativePath);
-    void DataManager::SaveProject(const Project& project, Config::AppConfig& appConfig);
+    void SaveProject(const Project& project, Config::AppConfig& appConfig);
+    void AddOEToProject (Project& project, const std::string& oeName, Config::AppConfig& appConfig);
 
     // Helpers
     std::vector<std::string> GetVendorList();

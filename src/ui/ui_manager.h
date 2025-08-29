@@ -18,6 +18,9 @@ private:
     CommandQueue& commandQueue;
     std::vector<Notification> notifications;
 
+    // UI elements
+    void ImGuiSpacing(int count = 1);
+
 public:
 
     UIManager(CommandQueue& queue) : commandQueue(queue), m_dataManager(nullptr), m_config(nullptr),  m_currentProject(nullptr) {}
@@ -43,4 +46,5 @@ public:
     void RenderPopups();
     NewProjectFormResult RenderNewProjectPopup();
     LoadProjectFormResult RenderLoadProjectPopup();
+    AddOEFormResult RenderAddOEPopup();
 };
