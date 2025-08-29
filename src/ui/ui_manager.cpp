@@ -416,7 +416,7 @@ void UIManager::RenderPopups(){
     if (uiState.editOEPopupOpen) {
         EditOEFormResult result = RenderEditOEPopup();
 
-        /*if (result.submitted) {
+        if (result.submitted) {
             // Update OE name in the project
             auto& oe = m_currentProject->operationalEnvironments[uiState.selectedOEIndex];
             oe.oeName = result.newName;
@@ -426,7 +426,7 @@ void UIManager::RenderPopups(){
             commandQueue.Push(std::move(cmd));
 
             uiState.editOEPopupOpen = false;
-        }*/
+        }
     }
 }
 
@@ -568,35 +568,37 @@ AddOEFormResult UIManager::RenderAddOEPopup() {
 EditOEFormResult UIManager::RenderEditOEPopup() {
     EditOEFormResult result;
 
-    // Keep calling OpenPopup every frame until modal is shown
-    if (uiState.editOEPopupOpen) {
-        ImGui::OpenPopup("Edit Operational Environment");
-    }
+    if (!uiState.editOEPopupOpen) return result;
+    ImGui::OpenPopup("Edit Operational Environment");
 
     if (uiState.selectedOEIndex < 0 || uiState.selectedOEIndex >= (int)m_currentProject->operationalEnvironments.size())
-        return result; // invalid selection
+        return result;
 
     auto& oe = m_currentProject->operationalEnvironments[uiState.selectedOEIndex];
 
-    // Begin the popup
+    // Static buffer for the popup
+    static char oeNameBuffer[256];
+    static bool initialized = false;
+
+    // Initialize buffer only once when the popup opens
+    if (!initialized) {
+        std::strncpy(oeNameBuffer, oe.oeName.c_str(), sizeof(oeNameBuffer));
+        oeNameBuffer[sizeof(oeNameBuffer) - 1] = '\0';
+        initialized = true;
+    }
+
     ImGui::SetNextWindowSize(ImVec2(400, 150), ImGuiCond_Appearing);
     if (ImGui::BeginPopupModal("Edit Operational Environment", nullptr, ImGuiWindowFlags_NoResize)) {
 
-        // Title / info
         ImGui::Text("Editing OE: %s", oe.oeName.c_str());
         ImGui::Spacing();
 
-        // Input field for OE name
-        static char oeNameBuffer[256];
-        std::strncpy(oeNameBuffer, oe.oeName.c_str(), sizeof(oeNameBuffer));
-        oeNameBuffer[sizeof(oeNameBuffer) - 1] = '\0';
         ImGui::InputText("Name", oeNameBuffer, sizeof(oeNameBuffer));
 
         ImGui::Spacing();
         ImGui::Separator();
         ImGui::Spacing();
 
-        // Buttons at the bottom
         float buttonWidth = 100.0f;
         if (ImGui::Button("Save", ImVec2(buttonWidth, 0))) {
             result.submitted = true;
@@ -604,15 +606,16 @@ EditOEFormResult UIManager::RenderEditOEPopup() {
 
             ImGui::CloseCurrentPopup();
             uiState.editOEPopupOpen = false;
-            std::fill(std::begin(oeNameBuffer), std::end(oeNameBuffer), 0); // clear input
+            initialized = false; // reset for next time
         }
+
         ImGui::SameLine();
         if (ImGui::Button("Cancel", ImVec2(buttonWidth, 0))) {
             result.submitted = false;
 
             ImGui::CloseCurrentPopup();
             uiState.editOEPopupOpen = false;
-            std::fill(std::begin(oeNameBuffer), std::end(oeNameBuffer), 0); // clear input
+            initialized = false; // reset for next time
         }
 
         ImGui::EndPopup();

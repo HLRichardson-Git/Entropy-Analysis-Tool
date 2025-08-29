@@ -180,8 +180,10 @@ Project DataManager::LoadProject(const std::string& filename) {
     return proj;
 }
 
-void DataManager::SaveProject(const Project& project, Config::AppConfig& appConfig) {
+void DataManager::SaveProject(Project& project, Config::AppConfig& appConfig) {
     if (project.name.empty() || project.path.empty()) return;
+
+    UpdateOEsForProject(project);
 
     fs::path projectJsonPath = project.path;
 
@@ -319,3 +321,115 @@ std::vector<std::string> DataManager::GetVendorList() {
     }
     return vendors;
 }
+
+/*void DataManager::UpdateOEsForProject(Project& project) {
+    for (auto& oe : project.operationalEnvironments) {
+        //fs::path oldDir = fs::path(oe.oePath).parent_path(); // existing path
+        //fs::path newDir = oldDir.parent_path() / oe.oeName;  // parent/OEName
+        fs::path oldDir = "../../" / fs::path("OE") / fs::path(oe.oePath).parent_path().filename(); // existing OE folder
+        // Compute the new directory using the updated OE name
+        fs::path newDir = fs::path("OE") / oe.oeName;
+        std::cout << oe.oeName << std::endl;
+        // Rename the directory if it exists and the name changed
+        if (fs::exists(oldDir) && oldDir != newDir) {
+            try {
+                fs::rename(oldDir, newDir);
+            } catch (const std::exception& e) {
+                std::cerr << "Failed to rename OE directory: " << e.what() << std::endl;
+            }
+        }
+
+        // Update oe.json inside new directory
+        nlohmann::json oeJson;
+        oeJson["name"] = oe.oeName;
+        fs::path oeJsonPath = newDir / "oe.json";
+        {
+            std::ofstream out(oeJsonPath);
+            if (out.is_open()) out << oeJson.dump(4);
+        }
+
+        // Update path in project
+        oe.oePath = "OE/" + oe.oeName + "/oe.json";
+    }
+}*/
+/*void DataManager::UpdateOEsForProject(Project& project) {
+    // Project folder (directory containing project.json)
+    fs::path projectDir = fs::path(project.path).parent_path();
+
+    for (auto& oe : project.operationalEnvironments) {
+        // Compute old and new OE directories relative to project folder
+        fs::path oldDir = projectDir / fs::path(oe.oePath).parent_path().filename();
+        fs::path newDir = projectDir / "OE" / oe.oeName;
+
+        std::cout << "Old OE directory: " << oldDir << std::endl;
+        std::cout << "New OE directory: " << newDir << std::endl;
+
+        if (fs::exists(oldDir) && oldDir != newDir) {
+            try {
+                fs::rename(oldDir, newDir);
+                std::cout << "Renamed OE directory successfully" << std::endl;
+            } catch (const std::exception& e) {
+                std::cerr << "Failed to rename OE directory: " << e.what() << std::endl;
+            }
+        }
+
+        if (!fs::exists(newDir)) {
+            fs::create_directories(newDir);
+        }
+
+        // Update oe.json
+        nlohmann::json oeJson;
+        oeJson["name"] = oe.oeName;
+        fs::path oeJsonPath = newDir / "oe.json";
+        {
+            std::ofstream out(oeJsonPath);
+            if (out.is_open()) out << oeJson.dump(4);
+        }
+
+        // Update oePath in project.json (relative to project folder)
+        oe.oePath = fs::relative(oeJsonPath, projectDir).string();
+        std::cout << "Updated oePath: " << oe.oePath << std::endl;
+    }
+}*/
+void DataManager::UpdateOEsForProject(Project& project) {
+    fs::path projectDir = fs::path(project.path).parent_path();
+    fs::path oeParentDir = projectDir / "OE";
+
+    // Ensure the parent OE folder exists
+    if (!fs::exists(oeParentDir)) {
+        fs::create_directories(oeParentDir);
+    }
+
+    for (auto& oe : project.operationalEnvironments) {
+        //fs::path oldDir = projectDir / fs::path(oe.oePath).parent_path().filename();
+        fs::path oldDir = projectDir / oe.oePath;   // full relative path from project
+        oldDir = oldDir.parent_path();   
+        fs::path newDir = oeParentDir / oe.oeName;
+
+        std::cout << "Old OE directory: " << oldDir << std::endl;
+        std::cout << "New OE directory: " << newDir << std::endl;
+
+        if (fs::exists(oldDir) && oldDir != newDir) {
+            try {
+                fs::rename(oldDir, newDir);
+                std::cout << "Renamed OE directory successfully" << std::endl;
+            } catch (const std::exception& e) {
+                std::cerr << "Failed to rename OE directory: " << e.what() << std::endl;
+            }
+        }
+
+        // Update oe.json in new directory
+        nlohmann::json oeJson;
+        oeJson["name"] = oe.oeName;
+        fs::path oeJsonPath = newDir / "oe.json";
+        {
+            std::ofstream out(oeJsonPath);
+            if (out.is_open()) out << oeJson.dump(4);
+        }
+
+        // Update path in project.json relative to projectDir
+        oe.oePath = fs::relative(oeJsonPath, projectDir).string();
+        std::cout << "Updated oePath: " << oe.oePath << std::endl;
+    }
+}
+

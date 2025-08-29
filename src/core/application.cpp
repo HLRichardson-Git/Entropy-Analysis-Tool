@@ -23,6 +23,8 @@ bool Application::Initialize() {
         return false;
     }
 
+    uiManager.OnProjectChanged(currentProject);
+
     // Setup ImGui styling
     SetupImGuiStyle();
     LoadFonts();
