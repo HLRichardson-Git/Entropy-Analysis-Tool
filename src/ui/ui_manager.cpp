@@ -9,7 +9,7 @@ bool UIManager::Initialize(DataManager* dataManager, Config::AppConfig* config, 
     m_config = config;
     m_currentProject = project;
     
-    heuristicManager.Initialize(dataManager, config, project);
+    heuristicManager.Initialize(dataManager, config, project, &uiState);
 
     // Set callbacks so heuristicManager can notify or request actions
     heuristicManager.SetCommandCallback([this](AppCommand cmd) {
@@ -528,7 +528,7 @@ LoadProjectFormResult UIManager::RenderLoadProjectPopup() {
         if (ImGui::Button("Load")) {
             if (!m_config->savedProjects.empty()) {
                 result.submitted = true;
-                result.filePath = m_config->savedProjects[selectedIndex].path;
+                result.filePath = m_config->savedProjects[selectedIndex].path + "\\project.json";
             }
             ImGui::CloseCurrentPopup();
             uiState.loadProjectPopupOpen = false;

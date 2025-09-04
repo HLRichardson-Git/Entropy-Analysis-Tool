@@ -28,36 +28,44 @@ namespace Config {
 }
 
 std::optional<std::string> FileSelector(
-    const std::string& dialogKey,     // Unique key for this dialog
-    const std::string& buttonLabel,   // Label for the button that opens dialog
-    const std::string& fileFilters,   // e.g. ".txt,.bin"
-    const std::string& initialPath    // Start folder
+    const std::string& dialogKey,
+    const std::string& buttonLabel,
+    const std::string& fileFilters,
+    const std::string& initialPath
 ) {
-    static std::string selectedFile;
-
-    // Layout: Button on left, path display on right
     ImGui::BeginGroup();
     if (ImGui::Button(buttonLabel.c_str())) {
         ImGuiFileDialog::Instance()->OpenDialog(dialogKey.c_str(), "Select File", fileFilters.c_str());
     }
-    ImGui::SameLine();
-
-    if (!selectedFile.empty()) {
-        ImGui::TextWrapped("%s", selectedFile.c_str());
-    } else {
-        ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "No file selected");
-    }
     ImGui::EndGroup();
 
-    // Display the dialog
     if (ImGuiFileDialog::Instance()->Display(dialogKey.c_str(), ImGuiWindowFlags_NoCollapse, ImVec2(600, 400))) {
         if (ImGuiFileDialog::Instance()->IsOk()) {
-            selectedFile = ImGuiFileDialog::Instance()->GetFilePathName();
+            std::string filePath = ImGuiFileDialog::Instance()->GetFilePathName();
             ImGuiFileDialog::Instance()->Close();
-            return selectedFile;
+            return filePath;
         }
         ImGuiFileDialog::Instance()->Close();
     }
 
     return std::nullopt;
+}
+
+std::optional<fs::path> CopyFileToDirectory(const fs::path& sourcePath, const fs::path& destDir) {
+    try {
+        if (!fs::exists(sourcePath)) {
+            std::cerr << "Source file does not exist: " << sourcePath << "\n";
+            return std::nullopt;
+        }
+
+        fs::create_directories(destDir);
+
+        fs::path destPath = destDir / sourcePath.filename();
+        fs::copy_file(sourcePath, destPath, fs::copy_options::overwrite_existing);
+
+        return destPath;
+    } catch (const fs::filesystem_error& e) {
+        std::cerr << "Error copying file: " << e.what() << "\n";
+        return std::nullopt;
+    }
 }

@@ -12,13 +12,14 @@
 class UIManager {
 private:
     DataManager* m_dataManager;
-    HeuristicManager heuristicManager;
     Config::AppConfig* m_config;
     Project* m_currentProject;
 
     UIState uiState;
     CommandQueue& commandQueue;
     std::vector<Notification> notifications;
+
+    HeuristicManager heuristicManager;
 
     // Main Content
     void RenderMainWindow();

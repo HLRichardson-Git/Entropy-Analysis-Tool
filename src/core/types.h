@@ -11,9 +11,15 @@ enum class Tabs {
     HeuristicAssessment
 };
 
+struct HeuristicData {
+    std::string heuristicFilePath;
+};
+
 struct OperationalEnvironment {
     std::string oeName;
     std::string oePath;
+
+    HeuristicData heuristicData;
 };
 
 struct Project {

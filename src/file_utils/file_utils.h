@@ -7,6 +7,10 @@
 #include <nlohmann/json.hpp>
 using json = nlohmann::json;
 
+#include <iostream>
+#include <filesystem>
+namespace fs = std::filesystem;
+
 void from_json(const json& j, Project& p);
 void to_json(json& j, const Project& p);
 
@@ -21,3 +25,5 @@ std::optional<std::string> FileSelector(
     const std::string& fileFilters = ".*", // e.g. ".txt,.bin"
     const std::string& initialPath = "."    // Start folder
 );
+
+std::optional<fs::path> CopyFileToDirectory(const fs::path& sourcePath, const fs::path& destDir);
