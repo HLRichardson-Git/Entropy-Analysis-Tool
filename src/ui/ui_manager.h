@@ -5,13 +5,14 @@
 #include <memory>
 
 #include "../data/data_manager.h"
+#include "heuristic_assessment/heuristic_manager.h"
 #include "../core/types.h"
 #include "../core/app_command/app_command.h"
-#include "../file_utils/file_utils.h"
 
 class UIManager {
 private:
     DataManager* m_dataManager;
+    HeuristicManager heuristicManager;
     Config::AppConfig* m_config;
     Project* m_currentProject;
 

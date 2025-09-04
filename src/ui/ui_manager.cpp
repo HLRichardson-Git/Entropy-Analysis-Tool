@@ -9,6 +9,17 @@ bool UIManager::Initialize(DataManager* dataManager, Config::AppConfig* config, 
     m_config = config;
     m_currentProject = project;
     
+    heuristicManager.Initialize(dataManager, config, project);
+
+    // Set callbacks so heuristicManager can notify or request actions
+    heuristicManager.SetCommandCallback([this](AppCommand cmd) {
+        commandQueue.Push(std::move(cmd));
+    });
+
+    heuristicManager.SetNotificationCallback([this](const std::string& msg, float duration, ImVec4 color) {
+        PushNotification(msg, duration, color);
+    });
+
     return true;
 }
 
@@ -293,12 +304,10 @@ void UIManager::RenderSidebar() {
 void UIManager::RenderMainContent() {
     switch (uiState.activeTab) {
         case Tabs::StatisticalAssessment:
-            ImGui::Text("This is Page A");
+            ImGui::Text("Statistical Assessment Page");
             break;
         case Tabs::HeuristicAssessment:
-            if (auto file = FileSelector("HistogramFileDlg", "Load Raw Samples", ".data,.bin,.txt,.*")) {
-                std::string path = *file;
-            }
+            heuristicManager.Render();
             break;
     }
 }

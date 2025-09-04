@@ -21,6 +21,7 @@ set (SOURCES
     src/core/app_command/app_command.cpp
     src/data/data_manager.cpp
     src/ui/ui_manager.cpp
+    src/ui/heuristic_assessment/heuristic_manager.cpp
     src/file_utils/file_utils.cpp
 )
 
