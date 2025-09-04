@@ -1,1 +1,1 @@
-# FIPS Project Manager
+# Entropy Analysis Tool

@@ -91,10 +91,7 @@ fs::path DataManager::NewProject(const std::string& vendor, const std::string& r
     projectTemplate["path"] = fs::relative(projectJsonPath, fs::current_path()).string();
     projectTemplate["currentTabIndex"] = 0;
     projectTemplate["hasJentHeuristic"] = true;
-    projectTemplate["operationalEnvironments"] = {
-        {{"name", "OE1"}, {"rawFilePath", "raw_data_oe1.bin"}, {"restartFilePath", "restart_data_oe1.bin"}, {"minEntropy", 0.0}, {"passed", false}},
-        {{"name", "OE2"}, {"rawFilePath", "raw_data_oe2.bin"}, {"restartFilePath", "restart_data_oe2.bin"}, {"minEntropy", 0.0}, {"passed", false}}
-    };
+    projectTemplate["operationalEnvironments"] = { {} };
 
     std::ofstream out(projectJsonPath);
     out << projectTemplate.dump(4);
@@ -136,13 +133,57 @@ Project DataManager::LoadProject(const std::string& filename) {
     // Store the path (absolute internally)
     proj.path = fullPath.string();
 
-    // TODO: load other fields as needed, e.g., operationalEnvironments, hasJentHeuristic, etc.
+    // Load operational environments
+    proj.operationalEnvironments.clear();
+    if (j.contains("operationalEnvironments") && j["operationalEnvironments"].is_array()) {
+        for (auto& oeJson : j["operationalEnvironments"]) {
+            // Skip null or non-object entries
+            if (!oeJson.is_object()) continue;
+
+            OperationalEnvironment oe;
+            oe.oeName = oeJson.value("name", "");
+            oe.oePath = oeJson.value("path", "");
+
+            // Validate the OE JSON file exists
+            fs::path oeJsonPath = fs::absolute(proj.path).parent_path() / oe.oePath;
+            if (!fs::exists(oeJsonPath)) {
+                std::cerr << "Warning: OE JSON file does not exist: " << oeJsonPath << "\n";
+                continue; // skip this OE
+            }
+
+            // Optional: check that the name inside the oe.json matches the expected name
+            std::ifstream oeIn(oeJsonPath);
+            if (oeIn) {
+                try {
+                    nlohmann::json oeFileJson;
+                    oeIn >> oeFileJson;
+                    std::string nameInFile = oeFileJson.value("name", "");
+                    if (nameInFile != oe.oeName) {
+                        std::cerr << "Warning: OE name mismatch in " << oeJsonPath 
+                                << " (expected: " << oe.oeName << ", found: " << nameInFile << ")\n";
+                        continue; // skip this OE
+                    }
+                } catch (const std::exception& e) {
+                    std::cerr << "Warning: Failed to parse OE JSON file: " << oeJsonPath 
+                            << " (" << e.what() << ")\n";
+                    continue;
+                }
+            } else {
+                std::cerr << "Warning: Could not open OE JSON file: " << oeJsonPath << "\n";
+                continue;
+            }
+
+            proj.operationalEnvironments.push_back(oe);
+        }
+    }
 
     return proj;
 }
 
-void DataManager::SaveProject(const Project& project, Config::AppConfig& appConfig) {
+void DataManager::SaveProject(Project& project, Config::AppConfig& appConfig) {
     if (project.name.empty() || project.path.empty()) return;
+
+    UpdateOEsForProject(project);
 
     fs::path projectJsonPath = project.path;
 
@@ -150,13 +191,17 @@ void DataManager::SaveProject(const Project& project, Config::AppConfig& appConf
     nlohmann::json projectJson;
     projectJson["name"] = project.name;
     projectJson["path"] = fs::relative(projectJsonPath, fs::current_path()).string();
-    // We do not have the OE and other logic in, so use placeholder for now
     projectJson["currentTabIndex"] = 0;
     projectJson["hasJentHeuristic"] = true;
-    projectJson["operationalEnvironments"] = {
-        {{"name", "OE1"}, {"rawFilePath", "raw_data_oe1.bin"}, {"restartFilePath", "restart_data_oe1.bin"}, {"minEntropy", 0.0}, {"passed", false}},
-        {{"name", "OE2"}, {"rawFilePath", "raw_data_oe2.bin"}, {"restartFilePath", "restart_data_oe2.bin"}, {"minEntropy", 0.0}, {"passed", false}}
-    };
+
+    // Serialize operational environments from the Project vector
+    projectJson["operationalEnvironments"] = nlohmann::json::array();
+    for (const auto& oe : project.operationalEnvironments) {
+        nlohmann::json oeJson;
+        oeJson["name"] = oe.oeName;
+        oeJson["path"] = oe.oePath;
+        projectJson["operationalEnvironments"].push_back(oeJson);
+    }
 
     // Write project.json
     std::ofstream out(projectJsonPath);
@@ -182,6 +227,170 @@ void DataManager::SaveProject(const Project& project, Config::AppConfig& appConf
     saveAppConfig("../../data/app.json", appConfig);
 }
 
+void DataManager::AddOEToProject(Project& project, const std::string& oeName, Config::AppConfig& appConfig) {
+    if (project.name.empty() || project.path.empty()) return;
+
+    fs::path projectJsonPath = project.path;
+    fs::path projectDir = projectJsonPath.parent_path();
+
+    // Load existing project.json
+    nlohmann::json projectJson;
+    {
+        std::ifstream in(projectJsonPath);
+        if (in.is_open()) {
+            try {
+                in >> projectJson;
+            } catch (const std::exception& e) {
+                std::cerr << "Failed to parse project JSON: " << e.what() << std::endl;
+            }
+        }
+    }
+
+    // Ensure operationalEnvironments array exists
+    if (!projectJson.contains("operationalEnvironments") || !projectJson["operationalEnvironments"].is_array()) {
+        projectJson["operationalEnvironments"] = nlohmann::json::array();
+    }
+
+    // Create new OE entry
+    OperationalEnvironment newOE;
+    newOE.oeName = oeName;
+    newOE.oePath = "OE/" + oeName + "/oe.json"; // placeholder path
+
+    // Append to JSON for saving
+    nlohmann::json jsonOE;
+    jsonOE["name"] = newOE.oeName;
+    jsonOE["path"] = newOE.oePath;
+    projectJson["operationalEnvironments"].push_back(jsonOE);
+
+    // Write updated project.json
+    std::ofstream out(projectJsonPath);
+    if (!out.is_open()) {
+        std::cerr << "Failed to open project file for writing: " << projectJsonPath << std::endl;
+        return;
+    }
+    out << projectJson.dump(4);
+    out.close();
+
+    // Update in-memory Project object
+    project.operationalEnvironments.push_back(newOE);
+
+    // Create OE directory
+    fs::path oeDir = projectDir / "OE" / oeName;
+    std::error_code ec;
+    fs::create_directories(oeDir, ec);
+    if (ec) {
+        std::cerr << "Failed to create OE directory: " << oeDir << " (" << ec.message() << ")\n";
+    }
+
+    // Create minimal oe.json
+    fs::path oeJsonPath = oeDir / "oe.json";
+    nlohmann::json oeJson;
+    oeJson["name"] = oeName;
+
+    std::ofstream oeOut(oeJsonPath);
+    if (!oeOut.is_open()) {
+        std::cerr << "Failed to create OE JSON file: " << oeJsonPath << std::endl;
+    } else {
+        oeOut << oeJson.dump(4);
+    }
+
+    // Optionally update appConfig.savedProjects if project not present
+    auto it = std::find_if(
+        appConfig.savedProjects.begin(),
+        appConfig.savedProjects.end(),
+        [&](const Project& p) { return p.path == project.path; }
+    );
+
+    if (it == appConfig.savedProjects.end()) {
+        appConfig.savedProjects.push_back(project);
+    }
+
+    // Persist app config
+    saveAppConfig("../../data/app.json", appConfig);
+}
+
+void DataManager::DeleteOE(Project& project, int oeIndex, Config::AppConfig& appConfig) {
+    if (project.name.empty() || project.path.empty()) return;
+    if (oeIndex < 0 || oeIndex >= (int)project.operationalEnvironments.size()) return;
+
+    // Identify the OE
+    OperationalEnvironment oeToDelete = project.operationalEnvironments[oeIndex];
+
+    fs::path projectJsonPath = project.path;
+    fs::path projectDir = projectJsonPath.parent_path();
+
+    // Remove from in-memory vector
+    project.operationalEnvironments.erase(project.operationalEnvironments.begin() + oeIndex);
+
+    // Update project.json
+    nlohmann::json projectJson;
+    {
+        std::ifstream in(projectJsonPath);
+        if (in.is_open()) {
+            try {
+                in >> projectJson;
+            } catch (const std::exception& e) {
+                std::cerr << "Failed to parse project JSON: " << e.what() << std::endl;
+            }
+        }
+    }
+
+    if (projectJson.contains("operationalEnvironments") && projectJson["operationalEnvironments"].is_array()) {
+        // Erase the OE entry with matching name
+        auto& oeArray = projectJson["operationalEnvironments"];
+        for (auto it = oeArray.begin(); it != oeArray.end(); ++it) {
+            if (it->contains("name") && (*it)["name"] == oeToDelete.oeName) {
+                oeArray.erase(it);
+                break;
+            }
+        }
+    }
+
+    // Write updated project.json
+    std::ofstream out(projectJsonPath);
+    if (!out.is_open()) {
+        std::cerr << "Failed to open project file for writing: " << projectJsonPath << std::endl;
+        return;
+    }
+    out << projectJson.dump(4);
+    out.close();
+
+    // Delete OE directory on disk
+    fs::path oeDir = projectDir / ("OE/" + oeToDelete.oeName);
+    std::error_code ec;
+    fs::remove_all(oeDir, ec);
+    if (ec) {
+        std::cerr << "Failed to remove OE directory: " << oeDir << " (" << ec.message() << ")\n";
+    }
+
+    // After removing OE, check if "OE" directory is empty
+    fs::path oeRootDir = projectDir / "OE";
+    if (fs::exists(oeRootDir) && fs::is_directory(oeRootDir)) {
+        bool empty = fs::is_empty(oeRootDir, ec);
+        if (!ec && empty) {
+            fs::remove(oeRootDir, ec);
+            if (ec) {
+                std::cerr << "Failed to remove empty OE root directory: " << oeRootDir << " (" << ec.message() << ")\n";
+            }
+        }
+    }
+
+    // Persist app config (make sure project is still in savedProjects)
+    auto it = std::find_if(
+        appConfig.savedProjects.begin(),
+        appConfig.savedProjects.end(),
+        [&](const Project& p) { return p.path == project.path; }
+    );
+
+    if (it == appConfig.savedProjects.end()) {
+        appConfig.savedProjects.push_back(project);
+    } else {
+        *it = project; // update existing
+    }
+
+    saveAppConfig("../../data/app.json", appConfig);
+}
+
 std::vector<std::string> DataManager::GetVendorList() {
     std::vector<std::string> vendors;
     std::ifstream in("../../data/vendorList.json");
@@ -194,3 +403,40 @@ std::vector<std::string> DataManager::GetVendorList() {
     }
     return vendors;
 }
+
+void DataManager::UpdateOEsForProject(Project& project) {
+    fs::path projectDir = fs::path(project.path).parent_path();
+    fs::path oeParentDir = projectDir / "OE";
+
+    // Ensure the parent OE folder exists
+    if (!fs::exists(oeParentDir)) {
+        fs::create_directories(oeParentDir);
+    }
+
+    for (auto& oe : project.operationalEnvironments) {
+        fs::path oldDir = projectDir / oe.oePath;   // full relative path from project
+        oldDir = oldDir.parent_path();   
+        fs::path newDir = oeParentDir / oe.oeName;
+
+        if (fs::exists(oldDir) && oldDir != newDir) {
+            try {
+                fs::rename(oldDir, newDir);
+            } catch (const std::exception& e) {
+                std::cerr << "Failed to rename OE directory: " << e.what() << std::endl;
+            }
+        }
+
+        // Update oe.json in new directory
+        nlohmann::json oeJson;
+        oeJson["name"] = oe.oeName;
+        fs::path oeJsonPath = newDir / "oe.json";
+        {
+            std::ofstream out(oeJsonPath);
+            if (out.is_open()) out << oeJson.dump(4);
+        }
+
+        // Update path in project.json relative to projectDir
+        oe.oePath = fs::relative(oeJsonPath, projectDir).string();
+    }
+}
+

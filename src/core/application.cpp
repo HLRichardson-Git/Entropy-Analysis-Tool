@@ -23,6 +23,8 @@ bool Application::Initialize() {
         return false;
     }
 
+    uiManager.OnProjectChanged(currentProject);
+
     // Setup ImGui styling
     SetupImGuiStyle();
     LoadFonts();
@@ -37,10 +39,18 @@ void Application::Update() {
             using T = std::decay_t<decltype(command)>;
             if constexpr (std::is_same_v<T, NewProjectCommand>) {
                 NewProject(command);
+                uiManager.OnProjectChanged(currentProject);
             } else if constexpr (std::is_same_v<T, OpenProjectCommand>) {
                 LoadProject(command.filePath);
+                uiManager.OnProjectChanged(currentProject);
             } else if constexpr (std::is_same_v<T, SaveProjectCommand>) {
                 SaveProject();
+            } else if constexpr (std::is_same_v<T, AddOECommand>) {
+                dataManager.AddOEToProject(currentProject, command.oeName, config);
+                uiManager.OnProjectChanged(currentProject);
+            } else if constexpr (std::is_same_v<T, DeleteOECommand>) {
+                dataManager.DeleteOE(currentProject, command.oeIndex, config);
+                uiManager.OnProjectChanged(currentProject);
             }
         }, cmd);
     }
@@ -124,8 +134,8 @@ void Application::SetupImGuiStyle() {
     ImVec4* colors = style.Colors;
     
     // Main background colors
-    colors[ImGuiCol_WindowBg] = ImVec4(0.15f, 0.15f, 0.15f, 1.00f);        // Dark grey window background
-    colors[ImGuiCol_ChildBg] = ImVec4(0.18f, 0.18f, 0.18f, 1.00f);         // Slightly lighter for child windows
+    colors[ImGuiCol_WindowBg] = Config::BACKGROUND_COLOR;                  // Dark grey window background
+    colors[ImGuiCol_ChildBg] = Config::SLIGHTLY_LIGHTER_BACKGROUND_COLOR;  // Slightly lighter for child windows
     colors[ImGuiCol_PopupBg] = ImVec4(0.12f, 0.12f, 0.12f, 1.00f);         // Darker for popups
     colors[ImGuiCol_MenuBarBg] = ImVec4(0.12f, 0.12f, 0.12f, 1.00f);       // Menu bar background
     
@@ -199,7 +209,7 @@ void Application::LoadFonts() {
     config.PixelSnapH = true;
     io.Fonts->AddFontDefault();
     
-    Config::fontH1 = io.Fonts->AddFontFromFileTTF("../../assets/fonts/Roboto-Bold.ttf", 28.0f);
+    Config::fontH1 = io.Fonts->AddFontFromFileTTF("../../assets/fonts/Roboto-Regular.ttf", 28.0f);
     {
         ImFontConfig iconConfig;
         iconConfig.MergeMode = true;
@@ -208,7 +218,25 @@ void Application::LoadFonts() {
         io.Fonts->AddFontFromFileTTF("../../assets/fonts/Font Awesome 6 Free-Solid-900.otf", 28.0f, &iconConfig, icons_ranges);
     }
 
-    Config::fontH2 = io.Fonts->AddFontFromFileTTF("../../assets/fonts/Roboto-Bold.ttf", 22.0f);
+    Config::fontH1_Bold = io.Fonts->AddFontFromFileTTF("../../assets/fonts/Roboto-Bold.ttf", 28.0f);
+    {
+        ImFontConfig iconConfig;
+        iconConfig.MergeMode = true;
+        iconConfig.PixelSnapH = true;
+        static const ImWchar icons_ranges[] = { 0xf000, 0xf8ff, 0 };
+        io.Fonts->AddFontFromFileTTF("../../assets/fonts/Font Awesome 6 Free-Solid-900.otf", 28.0f, &iconConfig, icons_ranges);
+    }
+
+    Config::fontH2 = io.Fonts->AddFontFromFileTTF("../../assets/fonts/Roboto-Regular.ttf", 22.0f);
+    {
+        ImFontConfig iconConfig;
+        iconConfig.MergeMode = true;
+        iconConfig.PixelSnapH = true;
+        static const ImWchar icons_ranges[] = { 0xf000, 0xf8ff, 0 };
+        io.Fonts->AddFontFromFileTTF("../../assets/fonts/Font Awesome 6 Free-Solid-900.otf", 22.0f, &iconConfig, icons_ranges);
+    }
+
+    Config::fontH2_Bold = io.Fonts->AddFontFromFileTTF("../../assets/fonts/Roboto-Bold.ttf", 22.0f);
     {
         ImFontConfig iconConfig;
         iconConfig.MergeMode = true;
@@ -218,6 +246,15 @@ void Application::LoadFonts() {
     }
 
     Config::fontH3 = io.Fonts->AddFontFromFileTTF("../../assets/fonts/Roboto-Regular.ttf", 18.0f);
+    {
+        ImFontConfig iconConfig;
+        iconConfig.MergeMode = true;
+        iconConfig.PixelSnapH = true;
+        static const ImWchar icons_ranges[] = { 0xf000, 0xf8ff, 0 };
+        io.Fonts->AddFontFromFileTTF("../../assets/fonts/Font Awesome 6 Free-Solid-900.otf", 18.0f, &iconConfig, icons_ranges);
+    }
+
+    Config::fontH3_Bold = io.Fonts->AddFontFromFileTTF("../../assets/fonts/Roboto-Bold.ttf", 18.0f);
     {
         ImFontConfig iconConfig;
         iconConfig.MergeMode = true;

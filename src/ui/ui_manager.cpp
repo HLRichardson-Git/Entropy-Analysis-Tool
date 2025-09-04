@@ -57,9 +57,8 @@ void UIManager::RenderMainWindow() {
 }
 
 void UIManager::RenderSidebar() {
-
-    ImGui::PushFont(Config::fontH1);
-    ImGui::Text(Config::APPLICATION_TITLE);
+    ImGui::PushFont(Config::fontH1_Bold);
+    ImGui::TextWrapped(Config::APPLICATION_TITLE);
     ImGui::PopFont();
 
     ImGui::PushFont(Config::fontH3);
@@ -73,51 +72,221 @@ void UIManager::RenderSidebar() {
     ImGui::Spacing();
 
     ImGui::PushFont(Config::fontH3);
-    std::string newProjectButton = std::string(u8"\uf067") + "  New Project"; // \uf067 is the plus icon
-    if (ImGui::Button(newProjectButton.c_str())) {
-        uiState.newProjectPopupOpen = true;
-    }
-    ImGui::PopFont();
 
-    ImGui::PushFont(Config::fontH3);
-    std::string loadProjectButton = std::string(u8"\uf07c") + "  Load Project";
-    if(ImGui::Button(loadProjectButton.c_str())) {
-        uiState.loadProjectPopupOpen = true;
-    }
-    ImGui::PopFont();
-
-    ImGui::PushFont(Config::fontH3);
-    std::string saveProjectButton = std::string(u8"\uf0c7") + "  Save Project"; // \uf0c7 is the floppy disk icon
-    if (ImGui::Button(saveProjectButton.c_str())) {
-        commandQueue.Push(SaveProjectCommand{});
-        PushNotification("Project saved!", 3.0f, ImVec4(0.0f, 1.0f, 0.0f, 1.0f));
-    }
-    ImGui::PopFont();
-
-    // Card with current project name
     float sidebarWidth = ImGui::GetContentRegionAvail().x;
-    float projectBoxHeight = 60.0f; // whatever height you want
+    ImVec2 buttonSize(sidebarWidth * 0.7f, 0);
 
-    ImGui::BeginChild("ProjectInfo", ImVec2(sidebarWidth, projectBoxHeight), true);
+    ImGui::PushStyleColor(ImGuiCol_Button,        Config::GREEN_BUTTON.normal);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::GREEN_BUTTON.hovered);
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREEN_BUTTON.active);
     {
-        float textHeight = ImGui::GetTextLineHeight();
-        float yOffset = (projectBoxHeight - textHeight) * 0.5f;
+        std::string newProjectButton = std::string(u8"\uf067") + "  New Project";
+        if (ImGui::Button(newProjectButton.c_str(), buttonSize)) {
+            uiState.newProjectPopupOpen = true;
+        }
+    }
+    ImGui::PopStyleColor(3);
+
+    ImGui::PushStyleColor(ImGuiCol_Button,        Config::ORANGE_BUTTON.normal);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::ORANGE_BUTTON.hovered);
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::ORANGE_BUTTON.active);
+    {
+        std::string loadProjectButton = std::string(u8"\uf07c") + "  Load Project";
+        if (ImGui::Button(loadProjectButton.c_str(), buttonSize)) {
+            uiState.loadProjectPopupOpen = true;
+        }
+    }
+    ImGui::PopStyleColor(3);
+    
+    ImGui::PushStyleColor(ImGuiCol_Button,        Config::RED_BUTTON.normal);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::RED_BUTTON.hovered);
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::RED_BUTTON.active);
+    {
+        std::string saveProjectButton = std::string(u8"\uf0c7") + "  Save Project";
+        if (ImGui::Button(saveProjectButton.c_str(), buttonSize)) {
+            commandQueue.Push(AppCommand(SaveProjectCommand{}));
+            PushNotification("Project saved!", 3.0f, ImVec4(0.0f, 1.0f, 0.0f, 1.0f));
+        }
+    }
+    ImGui::PopStyleColor(3);
+
+    ImGui::PopFont();
+
+    ImGuiSpacing(2);
+
+    /* Card with current project name */
+    float projectBoxHeight = 50.0f;
+
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, Config::LIGHT_BACKGROUND_COLOR);
+    ImGui::BeginChild("ProjectInfo", ImVec2(sidebarWidth, projectBoxHeight), true, ImGuiWindowFlags_NoScrollbar);
+    {
+        float padding = 10.0f;
+        float iconColumnWidth = 40.0f; 
+        float iconLeftPadding = 15.0f;
+        float textColumnWidth = sidebarWidth - iconColumnWidth - 2 * padding;
+
+        ImGui::Columns(2, nullptr, false);
+        ImGui::SetColumnWidth(0, iconColumnWidth);
+
+        /* Right column: Icon */
+        float cardHeight = ImGui::GetContentRegionAvail().y;
+        float yOffset = (cardHeight) * 0.5f;
         if (yOffset > 0) ImGui::SetCursorPosY(yOffset);
 
+        ImGui::SetCursorPosX(iconLeftPadding);
         ImGui::PushFont(Config::fontH3);
-        std::string projectLabel = std::string(u8"\uf1c0") + " " + m_currentProject->name;
-        ImGui::Text(projectLabel.c_str());
+        ImGui::Text(u8"\uf1c0"); // Database icon
         ImGui::PopFont();
+
+        ImGui::NextColumn();
+        ImGui::SetColumnWidth(1, textColumnWidth);
+
+        /* Right column: Text */
+        // Reduce vertical spacing between label and project name
+        float spacingBackup = ImGui::GetStyle().ItemSpacing.y; // save default
+        ImGui::GetStyle().ItemSpacing.y = 1.0f; // set to a smaller spacing
+
+
+        ImGui::PushFont(Config::fontH3_Bold); 
+        ImGui::Text("Current Project"); 
+        ImGui::PopFont();
+
+        ImGui::PushFont(Config::normal);
+        ImGui::TextWrapped("%s", m_currentProject->name.c_str());
+        ImGui::PopFont();
+
+        ImGui::GetStyle().ItemSpacing.y = spacingBackup; // restore default
+
+        ImGui::Columns(1);
     }
     ImGui::EndChild();
+    ImGui::PopStyleColor();
 
-    // Buttons to swap between statisicatl assessment and heuristic assessment
-    if (ImGui::Selectable("Statistical Assessment", uiState.activeTab == Tabs::StatisticalAssessment))
-        uiState.activeTab = Tabs::StatisticalAssessment;
-    if (ImGui::Selectable("Heuristic Assessment", uiState.activeTab == Tabs::HeuristicAssessment))
-        uiState.activeTab = Tabs::HeuristicAssessment;
+    ImGuiSpacing(2);
 
-    // TODO: If project is loaded & the project has OEs, then list them as a card else do nothing
+    /* Statistics/Heuristic Button selector */
+    float padding = ImGui::GetStyle().ItemSpacing.x;
+    float projectButtonWidth = (sidebarWidth - padding) * 0.5f;
+    ImVec2 projectButtonSize(projectButtonWidth, 0);
+
+    ImGui::PushFont(Config::fontH3);
+
+    bool isStatActive = (uiState.activeTab == Tabs::StatisticalAssessment);
+    ImVec4 statColor = isStatActive ? Config::PURPLE_BUTTON.hovered : Config::PURPLE_BUTTON.normal;
+
+    // First button: Statistical Assessment
+    ImGui::PushStyleColor(ImGuiCol_Button,        statColor);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::PURPLE_BUTTON.hovered);
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::PURPLE_BUTTON.active);
+    {
+        std::string statisticalButton = std::string(u8"\uf1ec") + "  Statistical";
+        if (ImGui::Button(statisticalButton.c_str(), projectButtonSize)) {
+            uiState.activeTab = Tabs::StatisticalAssessment;
+        }
+    }    
+    ImGui::PopStyleColor(3);
+
+    ImGui::SameLine(0, padding);
+
+    // Second button: Heuristic Assessment
+    bool isHeuristicActive = (uiState.activeTab == Tabs::HeuristicAssessment);
+    ImVec4 heurColor = isHeuristicActive ? Config::PURPLE_BUTTON.hovered : Config::PURPLE_BUTTON.normal;
+
+    ImGui::PushStyleColor(ImGuiCol_Button,        heurColor);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::PURPLE_BUTTON.hovered);
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::PURPLE_BUTTON.active);
+    {
+        std::string heursiticButton = std::string(u8"\uf1fe") + "  Heuristic";
+        if (ImGui::Button(heursiticButton.c_str(), projectButtonSize)) {
+            uiState.activeTab = Tabs::HeuristicAssessment;
+        }
+    }    
+    ImGui::PopStyleColor(3);
+
+    ImGui::PopFont();
+
+    ImGuiSpacing(2);
+
+    /* Operational Environments */
+    ImGui::PushFont(Config::fontH3_Bold);
+    ImGui::Text("Operational Environments");
+    ImGui::PopFont();
+
+    ImGui::Spacing();
+    
+    ImGui::PushFont(Config::fontH3);
+
+    float oeButtonHeight = 50.0f;
+    float oeButtonWidth = sidebarWidth * 1.0f;
+
+    for (size_t i = 0; i < m_currentProject->operationalEnvironments.size(); ++i) {
+        const auto& oe = m_currentProject->operationalEnvironments[i];
+        bool isActive = (uiState.selectedOEIndex == (int)i);
+
+        ImVec4 bgColor = isActive ? Config::GREY_BUTTON.hovered : Config::GREY_BUTTON.normal;
+        ImGui::PushStyleColor(ImGuiCol_Button, bgColor);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::GREY_BUTTON.hovered);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, Config::GREY_BUTTON.active);
+        ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_DARK_CHARCOAL);
+        {
+            ImGuiStyle& style = ImGui::GetStyle();
+            ImVec2 prevAlign = style.ButtonTextAlign;
+
+            style.ButtonTextAlign = ImVec2(0.0f, 0.5f); // Set text to left aligned
+            std::string oeNameButton = std::string(u8"\uf2db") + " " + oe.oeName;
+            if (ImGui::Button(oeNameButton.c_str(), ImVec2(oeButtonWidth, oeButtonHeight))) {
+                uiState.selectedOEIndex = (int)i;
+            }
+            
+            style.ButtonTextAlign = prevAlign; // restore to center aligned
+        }
+        ImGui::PopStyleColor(4);
+
+        ImGui::Spacing();
+    }
+    ImGui::PopFont();
+
+    /* Add OE Button + OE Settings cog */
+    ImGui::PushFont(Config::fontH3);
+
+    float oeSettingButtonPadding = ImGui::GetStyle().ItemSpacing.x;
+    float addOEWidth = sidebarWidth * 0.7f;
+    float cogWidth = sidebarWidth - addOEWidth - oeSettingButtonPadding;
+    ImVec2 addOEButtonSize(addOEWidth, 0);
+    ImVec2 cogButtonSize(cogWidth, 0);
+
+    // Add OE Button
+    ImGui::PushStyleColor(ImGuiCol_Button,        Config::GREEN_BUTTON.normal);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::GREEN_BUTTON.hovered);
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREEN_BUTTON.active);
+    {
+        std::string addOEButton = std::string(u8"\uf067"); // '+' icon
+        if (ImGui::Button(addOEButton.c_str(), addOEButtonSize)) {
+            uiState.addOEPopupOpen = true;
+        }
+    }
+    ImGui::PopStyleColor(3);
+
+    // Cog button
+    ImGui::SameLine(0, oeSettingButtonPadding);
+    ImGui::PushStyleColor(ImGuiCol_Button,        Config::WHITE_BUTTON.normal);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::WHITE_BUTTON.hovered);
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::WHITE_BUTTON.active);
+    ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_DARK_CHARCOAL);
+    {
+        ImGui::BeginDisabled(uiState.selectedOEIndex < 0);
+        std::string cogButton = std::string(u8"\uf013"); // cog icon
+        if (ImGui::Button(cogButton.c_str(), cogButtonSize)) {
+            if (uiState.selectedOEIndex >= 0) {
+                uiState.editOEPopupOpen = true;
+            }
+        }
+        ImGui::EndDisabled();
+    }
+    ImGui::PopStyleColor(4);
+
+    ImGui::PopFont();
+
 }
 
 // Render Utility
@@ -143,7 +312,7 @@ void UIManager::RenderMenuBar() {
                 uiState.loadProjectPopupOpen = true;
             }
             if (ImGui::MenuItem("Save Project")) {
-                commandQueue.Push(SaveProjectCommand{});
+                commandQueue.Push(AppCommand(SaveProjectCommand{}));
                 PushNotification("Project saved!", 3.0f, ImVec4(0.0f, 1.0f, 0.0f, 1.0f));
             }
             ImGui::EndMenu();
@@ -194,7 +363,10 @@ void UIManager::PushNotification(const std::string& msg, float duration, ImVec4 
 
 void UIManager::RenderNotifications() {
     for (auto it = notifications.begin(); it != notifications.end(); ) {
-        ImGui::SetNextWindowPos(ImVec2(10, 10 + 50 * std::distance(notifications.begin(), it)), ImGuiCond_Always);
+        ImGui::SetNextWindowPos(
+            ImVec2(10.0f, 10.0f + 50.0f * static_cast<float>(std::distance(notifications.begin(), it))),
+            ImGuiCond_Always
+        );
         ImGui::Begin(("Notification##" + std::to_string(std::distance(notifications.begin(), it))).c_str(),
                         nullptr,
                         ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize);
@@ -232,6 +404,38 @@ void UIManager::RenderPopups(){
                 result.projectName
             };
             commandQueue.Push(std::move(cmd));
+        }
+    }
+
+    if (uiState.addOEPopupOpen) {
+        AddOEFormResult result = RenderAddOEPopup();
+
+        if (result.submitted) {
+            AddOECommand cmd { result.oeName };
+            commandQueue.Push(std::move(cmd));
+        }
+    }
+
+    if (uiState.editOEPopupOpen) {
+        EditOEFormResult result = RenderEditOEPopup();
+
+        if (result.submitted) {
+            // Update OE name in the project
+            auto& oe = m_currentProject->operationalEnvironments[uiState.selectedOEIndex];
+            oe.oeName = result.newName;
+
+            // Update project.json / save app config here
+            SaveProjectCommand cmd {};
+            commandQueue.Push(std::move(cmd));
+
+            uiState.editOEPopupOpen = false;
+        }
+
+        if (result.deleted) {
+            DeleteOECommand del{ uiState.selectedOEIndex };
+            commandQueue.Push(del);
+
+            uiState.editOEPopupOpen = false;
         }
     }
 }
@@ -330,4 +534,180 @@ LoadProjectFormResult UIManager::RenderLoadProjectPopup() {
     }
 
     return result;
+}
+
+AddOEFormResult UIManager::RenderAddOEPopup() {
+    AddOEFormResult result;
+
+    // Keep calling OpenPopup every frame until modal is shown
+    if (uiState.addOEPopupOpen) {
+        ImGui::OpenPopup("Add Operational Environment");
+    }
+
+    if (ImGui::BeginPopupModal("Add Operational Environment", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::Text("Enter a name for the new OE:");
+
+        static char oeNameBuffer[128] = "";
+        ImGui::InputText("OE Name", oeNameBuffer, IM_ARRAYSIZE(oeNameBuffer));
+
+        // Buttons
+        if (ImGui::Button("Add")) {
+            result.submitted = true;
+            result.oeName = oeNameBuffer;
+
+            ImGui::CloseCurrentPopup();
+            uiState.addOEPopupOpen = false;
+            std::fill(std::begin(oeNameBuffer), std::end(oeNameBuffer), 0); // clear input
+        }
+
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel")) {
+            result.submitted = false;
+
+            ImGui::CloseCurrentPopup();
+            uiState.addOEPopupOpen = false;
+            std::fill(std::begin(oeNameBuffer), std::end(oeNameBuffer), 0); // clear input
+        }
+
+        ImGui::EndPopup();
+    }
+
+    return result;
+}
+
+EditOEFormResult UIManager::RenderEditOEPopup() {
+    EditOEFormResult result;
+
+    if (!uiState.editOEPopupOpen) return result;
+    ImGui::OpenPopup("Edit Operational Environment");
+
+    if (uiState.selectedOEIndex < 0 || uiState.selectedOEIndex >= (int)m_currentProject->operationalEnvironments.size())
+        return result;
+
+    auto& oe = m_currentProject->operationalEnvironments[uiState.selectedOEIndex];
+
+    static char oeNameBuffer[256];
+    static bool initialized = false;
+
+    if (!initialized) {
+        oe.oeName.copy(oeNameBuffer, sizeof(oeNameBuffer) - 1);
+        oeNameBuffer[sizeof(oeNameBuffer) - 1] = '\0';
+        initialized = true;
+    }
+
+    ImGui::SetNextWindowSize(ImVec2(450, 0), ImGuiCond_Appearing);
+    if (ImGui::BeginPopupModal("Edit Operational Environment", nullptr, ImGuiWindowFlags_NoResize)) {
+
+        // Title
+        ImGui::PushFont(Config::fontH2_Bold);
+        ImGui::Text("Edit OE");
+        ImGui::PopFont();
+        ImGui::Spacing();
+
+        // Input field
+        ImGui::PushFont(Config::normal);
+    
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Name:");
+        ImGui::SameLine();
+
+        ImGui::InputText("##OEName", oeNameBuffer, sizeof(oeNameBuffer));
+
+        ImGui::PopFont();
+
+        ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
+
+        // Action buttons
+        float buttonWidth = 120.0f;
+        float spacing = 10.0f;
+
+        // Save button
+        ImGui::PushFont(Config::fontH3);
+        ImGui::PushStyleColor(ImGuiCol_Button,        Config::GREEN_BUTTON.normal);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::GREEN_BUTTON.hovered);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREEN_BUTTON.active);
+        if (ImGui::Button((std::string(u8"\uf0c7 ") + "Save").c_str(), ImVec2(buttonWidth, 0))) {
+            result.submitted = true;
+            result.newName = std::string(oeNameBuffer);
+            ImGui::CloseCurrentPopup();
+            uiState.editOEPopupOpen = false;
+            initialized = false;
+        }
+        ImGui::PopStyleColor(3);
+
+        ImGui::SameLine(0, spacing);
+
+        // Cancel button
+        ImGui::PushStyleColor(ImGuiCol_Button,        Config::GREY_BUTTON.normal);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::GREY_BUTTON.hovered);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREY_BUTTON.active);
+        ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_DARK_CHARCOAL);
+        if (ImGui::Button((std::string(u8"\uf00d ") + "Cancel").c_str(), ImVec2(buttonWidth, 0))) {
+            result.submitted = false;
+            ImGui::CloseCurrentPopup();
+            uiState.editOEPopupOpen = false;
+            initialized = false;
+        }
+        ImGui::PopStyleColor(4);
+
+        ImGui::SameLine(0, spacing);
+
+        // Delete button
+        static bool confirmDeleteOEPopupOpen = false;
+        ImGui::PushStyleColor(ImGuiCol_Button,        Config::RED_BUTTON.normal);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::RED_BUTTON.hovered);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::RED_BUTTON.active);
+        if (ImGui::Button((std::string(u8"\uf1f8 ") + "Delete").c_str(), ImVec2(buttonWidth, 0))) {
+            confirmDeleteOEPopupOpen = true;
+            ImGui::OpenPopup("Confirm Delete OE");
+        }
+        ImGui::PopStyleColor(3);
+
+        // Confirm Delete Modal
+        if (confirmDeleteOEPopupOpen) {
+            ImGui::SetNextWindowSize(ImVec2(420, 0), ImGuiCond_Appearing);
+            if (ImGui::BeginPopupModal("Confirm Delete OE", nullptr, ImGuiWindowFlags_NoResize)) {
+                ImGui::PushFont(Config::fontH3_Bold);
+                ImGui::TextColored(ImVec4(0.8f, 0.1f, 0.1f, 1.0f), (std::string(u8"\uf1f8 ") + "Delete OE?").c_str());
+                ImGui::PopFont();
+
+                ImGui::Spacing();
+                ImGui::TextWrapped("Are you sure you want to delete OE \"%s\"?\nThis action cannot be undone.", oe.oeName.c_str());
+                ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
+
+                if (ImGui::Button("Yes, delete", ImVec2(buttonWidth, 0))) {
+                    result.deleted = true;
+                    confirmDeleteOEPopupOpen = false;
+                    uiState.editOEPopupOpen = false;
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("No", ImVec2(buttonWidth, 0))) {
+                    confirmDeleteOEPopupOpen = false;
+                    ImGui::CloseCurrentPopup();
+                }
+
+                ImGui::EndPopup();
+            }
+        }
+        ImGui::PopFont();
+
+        ImGui::EndPopup();
+    }
+
+    return result;
+}
+
+//UI Elements
+void UIManager::ImGuiSpacing(int count) {
+    ImGui::Dummy(ImVec2(0.0f, count * ImGui::GetStyle().ItemSpacing.y));
+}
+
+// Utility
+void UIManager::OnProjectChanged(Project project) {
+    if (!project.operationalEnvironments.empty()) {
+        uiState.selectedOEIndex = 0;
+    } else {
+        uiState.selectedOEIndex = -1;
+    }
 }

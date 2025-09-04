@@ -18,14 +18,6 @@ private:
     CommandQueue& commandQueue;
     std::vector<Notification> notifications;
 
-public:
-
-    UIManager(CommandQueue& queue) : commandQueue(queue), m_dataManager(nullptr), m_config(nullptr),  m_currentProject(nullptr) {}
-    ~UIManager() = default;
-    
-    bool Initialize(DataManager* dataManager, Config::AppConfig* config, Project* project);
-    void Render();
-
     // Main Content
     void RenderMainWindow();
     void RenderSidebar();
@@ -43,4 +35,20 @@ public:
     void RenderPopups();
     NewProjectFormResult RenderNewProjectPopup();
     LoadProjectFormResult RenderLoadProjectPopup();
+    AddOEFormResult RenderAddOEPopup();
+    EditOEFormResult RenderEditOEPopup();
+
+    // UI elements
+    void ImGuiSpacing(int count = 1);
+
+public:
+
+    UIManager(CommandQueue& queue) : commandQueue(queue), m_dataManager(nullptr), m_config(nullptr),  m_currentProject(nullptr) {}
+    ~UIManager() = default;
+    
+    bool Initialize(DataManager* dataManager, Config::AppConfig* config, Project* project);
+    void Render();
+
+    // Utility
+    void OnProjectChanged(Project project);
 };

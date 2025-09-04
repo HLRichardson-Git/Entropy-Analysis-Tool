@@ -2,6 +2,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 #include <imgui.h>
 
@@ -10,9 +11,16 @@ enum class Tabs {
     HeuristicAssessment
 };
 
+struct OperationalEnvironment {
+    std::string oeName;
+    std::string oePath;
+};
+
 struct Project {
     std::string name;
     std::string path;
+
+    std::vector<OperationalEnvironment> operationalEnvironments;
 };
 
 struct NewProjectFormResult {
@@ -27,6 +35,17 @@ struct LoadProjectFormResult {
     std::string filePath;
 };
 
+struct AddOEFormResult {
+    bool submitted = false;
+    std::string oeName;
+};
+
+struct EditOEFormResult {
+    bool submitted = false;
+    bool deleted = false;
+    std::string newName;
+};
+
 struct UIState {
     Tabs activeTab = Tabs::StatisticalAssessment;
     
@@ -39,6 +58,13 @@ struct UIState {
     bool saveProjectRequested = false;
     bool showSaveNotification = false; // for temporary save notification
     float saveNotificationTimer = 0.0f; // counts down in seconds
+
+    bool addOEPopupOpen = false;
+    AddOEFormResult addOEFormResult;
+
+    bool editOEPopupOpen = false;
+
+    int selectedOEIndex = -1; // -1 means no OE selected
 
     bool showHelpWindow = false;
 };
