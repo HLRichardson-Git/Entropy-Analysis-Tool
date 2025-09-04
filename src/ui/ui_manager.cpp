@@ -572,7 +572,7 @@ AddOEFormResult UIManager::RenderAddOEPopup() {
     return result;
 }
 
-EditOEFormResult UIManager::RenderEditOEPopup() {
+/*EditOEFormResult UIManager::RenderEditOEPopup() {
     EditOEFormResult result;
 
     if (!uiState.editOEPopupOpen) return result;
@@ -663,6 +663,128 @@ EditOEFormResult UIManager::RenderEditOEPopup() {
                 ImGui::EndPopup();
             }
         }
+
+        ImGui::EndPopup();
+    }
+
+    return result;
+}*/
+EditOEFormResult UIManager::RenderEditOEPopup() {
+    EditOEFormResult result;
+
+    if (!uiState.editOEPopupOpen) return result;
+    ImGui::OpenPopup("Edit Operational Environment");
+
+    if (uiState.selectedOEIndex < 0 || uiState.selectedOEIndex >= (int)m_currentProject->operationalEnvironments.size())
+        return result;
+
+    auto& oe = m_currentProject->operationalEnvironments[uiState.selectedOEIndex];
+
+    static char oeNameBuffer[256];
+    static bool initialized = false;
+
+    if (!initialized) {
+        std::strncpy(oeNameBuffer, oe.oeName.c_str(), sizeof(oeNameBuffer));
+        oeNameBuffer[sizeof(oeNameBuffer) - 1] = '\0';
+        initialized = true;
+    }
+
+    ImGui::SetNextWindowSize(ImVec2(450, 0), ImGuiCond_Appearing);
+    if (ImGui::BeginPopupModal("Edit Operational Environment", nullptr, ImGuiWindowFlags_NoResize)) {
+
+        // Title
+        ImGui::PushFont(Config::fontH2_Bold);
+        ImGui::Text("Edit OE");
+        ImGui::PopFont();
+        ImGui::Spacing();
+
+        // Input field
+        ImGui::PushFont(Config::normal);
+    
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Name:");
+        ImGui::SameLine();
+
+        ImGui::InputText("##OEName", oeNameBuffer, sizeof(oeNameBuffer));
+
+        ImGui::PopFont();
+
+        ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
+
+        // Action buttons
+        float buttonWidth = 120.0f;
+        float spacing = 10.0f;
+
+        // Save button
+        ImGui::PushFont(Config::fontH3);
+        ImGui::PushStyleColor(ImGuiCol_Button,        Config::GREEN_BUTTON.normal);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::GREEN_BUTTON.hovered);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREEN_BUTTON.active);
+        if (ImGui::Button((std::string(u8"\uf0c7 ") + "Save").c_str(), ImVec2(buttonWidth, 0))) {
+            result.submitted = true;
+            result.newName = std::string(oeNameBuffer);
+            ImGui::CloseCurrentPopup();
+            uiState.editOEPopupOpen = false;
+            initialized = false;
+        }
+        ImGui::PopStyleColor(3);
+
+        ImGui::SameLine(0, spacing);
+
+        // Cancel button
+        ImGui::PushStyleColor(ImGuiCol_Button,        Config::GREY_BUTTON.normal);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::GREY_BUTTON.hovered);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREY_BUTTON.active);
+        ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_DARK_CHARCOAL);
+        if (ImGui::Button((std::string(u8"\uf00d ") + "Cancel").c_str(), ImVec2(buttonWidth, 0))) {
+            result.submitted = false;
+            ImGui::CloseCurrentPopup();
+            uiState.editOEPopupOpen = false;
+            initialized = false;
+        }
+        ImGui::PopStyleColor(4);
+
+        ImGui::SameLine(0, spacing);
+
+        // Delete button
+        static bool confirmDeleteOEPopupOpen = false;
+        ImGui::PushStyleColor(ImGuiCol_Button,        Config::RED_BUTTON.normal);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::RED_BUTTON.hovered);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::RED_BUTTON.active);
+        if (ImGui::Button((std::string(u8"\uf1f8 ") + "Delete").c_str(), ImVec2(buttonWidth, 0))) {
+            confirmDeleteOEPopupOpen = true;
+            ImGui::OpenPopup("Confirm Delete OE");
+        }
+        ImGui::PopStyleColor(3);
+
+        // Confirm Delete Modal
+        if (confirmDeleteOEPopupOpen) {
+            ImGui::SetNextWindowSize(ImVec2(420, 0), ImGuiCond_Appearing);
+            if (ImGui::BeginPopupModal("Confirm Delete OE", nullptr, ImGuiWindowFlags_NoResize)) {
+                ImGui::PushFont(Config::fontH3_Bold);
+                ImGui::TextColored(ImVec4(0.8f, 0.1f, 0.1f, 1.0f), (std::string(u8"\uf1f8 ") + "Delete OE?").c_str());
+                ImGui::PopFont();
+
+                ImGui::Spacing();
+                ImGui::TextWrapped("Are you sure you want to delete OE \"%s\"?\nThis action cannot be undone.", oe.oeName.c_str());
+                ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
+
+                if (ImGui::Button("Yes, delete", ImVec2(buttonWidth, 0))) {
+                    result.deleted = true;
+                    confirmDeleteOEPopupOpen = false;
+                    uiState.editOEPopupOpen = false;
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("No", ImVec2(buttonWidth, 0))) {
+                    confirmDeleteOEPopupOpen = false;
+                    ImGui::CloseCurrentPopup();
+                }
+
+                ImGui::EndPopup();
+            }
+        }
+        ImGui::PopFont();
 
         ImGui::EndPopup();
     }
