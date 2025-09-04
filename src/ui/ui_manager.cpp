@@ -363,7 +363,10 @@ void UIManager::PushNotification(const std::string& msg, float duration, ImVec4 
 
 void UIManager::RenderNotifications() {
     for (auto it = notifications.begin(); it != notifications.end(); ) {
-        ImGui::SetNextWindowPos(ImVec2(10, 10 + 50 * std::distance(notifications.begin(), it)), ImGuiCond_Always);
+        ImGui::SetNextWindowPos(
+            ImVec2(10.0f, 10.0f + 50.0f * static_cast<float>(std::distance(notifications.begin(), it))),
+            ImGuiCond_Always
+        );
         ImGui::Begin(("Notification##" + std::to_string(std::distance(notifications.begin(), it))).c_str(),
                         nullptr,
                         ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize);
@@ -572,103 +575,6 @@ AddOEFormResult UIManager::RenderAddOEPopup() {
     return result;
 }
 
-/*EditOEFormResult UIManager::RenderEditOEPopup() {
-    EditOEFormResult result;
-
-    if (!uiState.editOEPopupOpen) return result;
-    ImGui::OpenPopup("Edit Operational Environment");
-
-    if (uiState.selectedOEIndex < 0 || uiState.selectedOEIndex >= (int)m_currentProject->operationalEnvironments.size())
-        return result;
-
-    auto& oe = m_currentProject->operationalEnvironments[uiState.selectedOEIndex];
-
-    // Static buffer for the popup
-    static char oeNameBuffer[256];
-    static bool initialized = false;
-
-    // Initialize buffer only once when the popup opens
-    if (!initialized) {
-        std::strncpy(oeNameBuffer, oe.oeName.c_str(), sizeof(oeNameBuffer));
-        oeNameBuffer[sizeof(oeNameBuffer) - 1] = '\0';
-        initialized = true;
-    }
-
-    ImGui::SetNextWindowSize(ImVec2(400, 150), ImGuiCond_Appearing);
-    if (ImGui::BeginPopupModal("Edit Operational Environment", nullptr, ImGuiWindowFlags_NoResize)) {
-
-        ImGui::Text("Editing OE: %s", oe.oeName.c_str());
-        ImGui::Spacing();
-
-        ImGui::InputText("Name", oeNameBuffer, sizeof(oeNameBuffer));
-
-        ImGui::Spacing();
-        ImGui::Separator();
-        ImGui::Spacing();
-
-        float buttonWidth = 100.0f;
-        if (ImGui::Button("Save", ImVec2(buttonWidth, 0))) {
-            result.submitted = true;
-            result.newName = std::string(oeNameBuffer);
-
-            ImGui::CloseCurrentPopup();
-            uiState.editOEPopupOpen = false;
-            initialized = false; // reset for next time
-        }
-
-        ImGui::SameLine();
-        if (ImGui::Button("Cancel", ImVec2(buttonWidth, 0))) {
-            result.submitted = false;
-
-            ImGui::CloseCurrentPopup();
-            uiState.editOEPopupOpen = false;
-            initialized = false; // reset for next time
-        }
-
-        ImGui::SameLine();
-
-        // Delete -> open confirm modal (keep edit open under it)
-        static bool confirmDeleteOEPopupOpen = false;
-        if (ImGui::Button("Delete", ImVec2(buttonWidth, 0))) {
-            confirmDeleteOEPopupOpen = true;
-            ImGui::OpenPopup("Confirm Delete OE");
-        }
-
-        // --- Confirm Delete Modal ---
-        if (confirmDeleteOEPopupOpen) {
-            ImGui::SetNextWindowSize(ImVec2(420, 0), ImGuiCond_Appearing);
-            if (ImGui::BeginPopupModal("Confirm Delete OE", nullptr, ImGuiWindowFlags_NoResize)) {
-                ImGui::Text("Delete OE \"%s\"?", oe.oeName.c_str());
-                ImGui::Spacing();
-                ImGui::TextWrapped("This action will remove it from the project.");
-
-                ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
-
-                if (ImGui::Button("Yes, delete", ImVec2(buttonWidth, 0))) {
-                    result.deleted = true;
-                    confirmDeleteOEPopupOpen = false;
-                    uiState.editOEPopupOpen = false; // also close the Edit popup next frame
-                    //lastIndex = -1;
-                    ImGui::CloseCurrentPopup(); // close Confirm
-                    // Note: Edit modal will stop reopening next frame.
-                }
-
-                ImGui::SameLine();
-
-                if (ImGui::Button("No", ImVec2(buttonWidth, 0))) {
-                    confirmDeleteOEPopupOpen = false;
-                    ImGui::CloseCurrentPopup(); // just close confirm; edit stays open
-                }
-
-                ImGui::EndPopup();
-            }
-        }
-
-        ImGui::EndPopup();
-    }
-
-    return result;
-}*/
 EditOEFormResult UIManager::RenderEditOEPopup() {
     EditOEFormResult result;
 
@@ -684,7 +590,7 @@ EditOEFormResult UIManager::RenderEditOEPopup() {
     static bool initialized = false;
 
     if (!initialized) {
-        std::strncpy(oeNameBuffer, oe.oeName.c_str(), sizeof(oeNameBuffer));
+        oe.oeName.copy(oeNameBuffer, sizeof(oeNameBuffer) - 1);
         oeNameBuffer[sizeof(oeNameBuffer) - 1] = '\0';
         initialized = true;
     }
