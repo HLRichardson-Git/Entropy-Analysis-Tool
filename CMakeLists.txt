@@ -11,6 +11,7 @@ include_directories(
     third_party/imgui/backends
     third_party/implot
     third_party/nlohmann
+    third_party/ImGuiFileDialog
 )
 
 set (SOURCES
@@ -36,11 +37,16 @@ file(GLOB NLOHMANN_JSON_SOURCES
     "third_party/nlohmann/*.hpp"
 )
 
+file(GLOB IMGUIFILEDIALOG_SOURCES
+    "third_party/ImGuiFileDialog/*.cpp"
+)
+
 add_executable(${PROJECT_NAME} 
     ${SOURCES} 
     ${IMGUI_SOURCES} 
     ${IMPLOT_SOURCES} 
-    ${NLOHMANN_JSON_SOURCES} 
+    ${NLOHMANN_JSON_SOURCES}
+    ${IMGUIFILEDIALOG_SOURCES}
     assets/resources.rc
 ) 
 

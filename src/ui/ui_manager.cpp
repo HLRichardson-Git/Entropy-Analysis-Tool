@@ -296,7 +296,9 @@ void UIManager::RenderMainContent() {
             ImGui::Text("This is Page A");
             break;
         case Tabs::HeuristicAssessment:
-            ImGui::Text("This is Page B");
+            if (auto file = FileSelector("HistogramFileDlg", "Load Raw Samples", ".data,.bin,.txt,.*")) {
+                std::string path = *file;
+            }
             break;
     }
 }

@@ -7,6 +7,7 @@
 #include "../data/data_manager.h"
 #include "../core/types.h"
 #include "../core/app_command/app_command.h"
+#include "../file_utils/file_utils.h"
 
 class UIManager {
 private:
