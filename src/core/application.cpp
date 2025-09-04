@@ -48,6 +48,9 @@ void Application::Update() {
             } else if constexpr (std::is_same_v<T, AddOECommand>) {
                 dataManager.AddOEToProject(currentProject, command.oeName, config);
                 uiManager.OnProjectChanged(currentProject);
+            } else if constexpr (std::is_same_v<T, DeleteOECommand>) {
+                dataManager.DeleteOE(currentProject, command.oeIndex, config);
+                uiManager.OnProjectChanged(currentProject);
             }
         }, cmd);
     }

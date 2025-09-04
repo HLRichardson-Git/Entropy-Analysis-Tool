@@ -255,7 +255,7 @@ void UIManager::RenderSidebar() {
     ImVec2 addOEButtonSize(addOEWidth, 0);
     ImVec2 cogButtonSize(cogWidth, 0);
 
-    // Add OE Button (green)
+    // Add OE Button
     ImGui::PushStyleColor(ImGuiCol_Button,        Config::GREEN_BUTTON.normal);
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::GREEN_BUTTON.hovered);
     ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREEN_BUTTON.active);
@@ -267,7 +267,7 @@ void UIManager::RenderSidebar() {
     }
     ImGui::PopStyleColor(3);
 
-    // Cog button (blue or grey)
+    // Cog button
     ImGui::SameLine(0, oeSettingButtonPadding);
     ImGui::PushStyleColor(ImGuiCol_Button,        Config::WHITE_BUTTON.normal);
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::WHITE_BUTTON.hovered);
@@ -421,9 +421,16 @@ void UIManager::RenderPopups(){
             auto& oe = m_currentProject->operationalEnvironments[uiState.selectedOEIndex];
             oe.oeName = result.newName;
 
-            // Optionally update project.json / save app config here
+            // Update project.json / save app config here
             SaveProjectCommand cmd {};
             commandQueue.Push(std::move(cmd));
+
+            uiState.editOEPopupOpen = false;
+        }
+
+        if (result.deleted) {
+            DeleteOECommand del{ uiState.selectedOEIndex };
+            commandQueue.Push(del);
 
             uiState.editOEPopupOpen = false;
         }
@@ -616,6 +623,45 @@ EditOEFormResult UIManager::RenderEditOEPopup() {
             ImGui::CloseCurrentPopup();
             uiState.editOEPopupOpen = false;
             initialized = false; // reset for next time
+        }
+
+        ImGui::SameLine();
+
+        // Delete -> open confirm modal (keep edit open under it)
+        static bool confirmDeleteOEPopupOpen = false;
+        if (ImGui::Button("Delete", ImVec2(buttonWidth, 0))) {
+            confirmDeleteOEPopupOpen = true;
+            ImGui::OpenPopup("Confirm Delete OE");
+        }
+
+        // --- Confirm Delete Modal ---
+        if (confirmDeleteOEPopupOpen) {
+            ImGui::SetNextWindowSize(ImVec2(420, 0), ImGuiCond_Appearing);
+            if (ImGui::BeginPopupModal("Confirm Delete OE", nullptr, ImGuiWindowFlags_NoResize)) {
+                ImGui::Text("Delete OE \"%s\"?", oe.oeName.c_str());
+                ImGui::Spacing();
+                ImGui::TextWrapped("This action will remove it from the project.");
+
+                ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
+
+                if (ImGui::Button("Yes, delete", ImVec2(buttonWidth, 0))) {
+                    result.deleted = true;
+                    confirmDeleteOEPopupOpen = false;
+                    uiState.editOEPopupOpen = false; // also close the Edit popup next frame
+                    //lastIndex = -1;
+                    ImGui::CloseCurrentPopup(); // close Confirm
+                    // Note: Edit modal will stop reopening next frame.
+                }
+
+                ImGui::SameLine();
+
+                if (ImGui::Button("No", ImVec2(buttonWidth, 0))) {
+                    confirmDeleteOEPopupOpen = false;
+                    ImGui::CloseCurrentPopup(); // just close confirm; edit stays open
+                }
+
+                ImGui::EndPopup();
+            }
         }
 
         ImGui::EndPopup();

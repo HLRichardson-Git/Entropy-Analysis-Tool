@@ -35,4 +35,5 @@ public:
     Project LoadProject(const std::string& relativePath);
     void SaveProject(Project& project, Config::AppConfig& appConfig);
     void AddOEToProject(Project& project, const std::string& oeName, Config::AppConfig& appConfig);
+    void DeleteOE(Project& project, int oeIndex, Config::AppConfig& appConfig);
 };

@@ -42,6 +42,7 @@ struct AddOEFormResult {
 
 struct EditOEFormResult {
     bool submitted = false;
+    bool deleted = false;
     std::string newName;
 };
 

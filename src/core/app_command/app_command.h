@@ -23,11 +23,16 @@ struct AddOECommand {
     std::string oeName;
 };
 
+struct DeleteOECommand {
+    int oeIndex;
+};
+
 using AppCommand = std::variant<
     OpenProjectCommand,
     SaveProjectCommand,
     NewProjectCommand,
-    AddOECommand
+    AddOECommand,
+    DeleteOECommand
 >;
 
 class CommandQueue {
