@@ -1,6 +1,8 @@
 
 #pragma once
 
+#include <implot.h>
+
 #include "../../data/data_manager.h"
 #include "../../core/types.h"
 #include "../../core/app_command/app_command.h"
@@ -20,6 +22,12 @@ private:
     NotificationCallback m_onNotification;
 
     OperationalEnvironment* GetSelectedOE();
+
+    bool m_editHistogramPopupOpen = false;
+
+    // Popups
+    void RenderPopups();
+    void RenderMainHistogramConfigPopup();
 
 public:
 
