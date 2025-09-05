@@ -447,3 +447,31 @@ void DataManager::UpdateOEsForProject(Project& project) {
         oe.oePath = fs::relative(newDir, projectDir).string();
     }
 }
+
+#include <chrono>
+// Heuristic
+PrecomputedHistogram DataManager::processHistogramForProject(Project& project, int oeIndex) {
+    PrecomputedHistogram hist;
+
+    // Construct full path to raw sample file
+    fs::path filePath = fs::path(project.operationalEnvironments[oeIndex].heuristicData.heuristicFilePath);
+
+    // Read samples from file
+    //std::vector<double> samples = loadSamplesFromFile(filePath, 1000000);
+    //std::cout << std::to_string(samples.size()) << std::endl;
+
+    // Compute histogram
+    //hist = computeHistogramBins(samples);
+    //hist = computeHistogramFromFile(filePath);
+
+    auto start = std::chrono::high_resolution_clock::now();
+
+    hist = computeHistogramFromFile(filePath);
+
+    auto end = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+
+    std::cout << "Histogram computation took " << duration << " ms\n";
+
+    return hist;
+}

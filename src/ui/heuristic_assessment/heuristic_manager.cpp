@@ -170,6 +170,10 @@ void HeuristicManager::RenderMainHistogramConfigPopup() {
             ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "No file loaded for this OE");
         }
 
+        if (ImGui::Button("Process uploaded file")) {
+            m_dataManager->processHistogramForProject(*m_currentProject, m_uiState->selectedOEIndex);
+        }
+
         ImVec2 windowSize = ImGui::GetWindowSize();
         ImVec2 buttonSize = ImVec2(120, 0); // width, auto height
 

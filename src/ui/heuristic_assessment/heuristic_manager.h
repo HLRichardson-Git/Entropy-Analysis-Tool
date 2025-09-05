@@ -4,6 +4,7 @@
 #include <implot.h>
 
 #include "../../data/data_manager.h"
+#include "../../data/histogram/histogram.h"
 #include "../../core/types.h"
 #include "../../core/app_command/app_command.h"
 #include "../../file_utils/file_utils.h"
@@ -24,6 +25,8 @@ private:
     OperationalEnvironment* GetSelectedOE();
 
     bool m_editHistogramPopupOpen = false;
+
+    void StartHistogramProcessing(const fs::path& filePath);
 
     // Popups
     void RenderPopups();

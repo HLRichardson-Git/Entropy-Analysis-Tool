@@ -8,6 +8,7 @@
 
 #include "models.h"
 #include "../core/config.h"
+#include "histogram/histogram.h"
 
 namespace fs = std::filesystem;
 
@@ -36,4 +37,7 @@ public:
     void SaveProject(Project& project, Config::AppConfig& appConfig);
     void AddOEToProject(Project& project, const std::string& oeName, Config::AppConfig& appConfig);
     void DeleteOE(Project& project, int oeIndex, Config::AppConfig& appConfig);
+
+    // Heuristic
+    PrecomputedHistogram processHistogramForProject(Project& project, int oeIndex);
 };
