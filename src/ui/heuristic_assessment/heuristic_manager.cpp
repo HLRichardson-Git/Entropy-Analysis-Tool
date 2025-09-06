@@ -89,20 +89,33 @@ void HeuristicManager::Render() {
 
         ImGui::PopFont();
 
-        // Placeholder histogram using ImPlot
-        if (ImPlot::BeginPlot("##MainHistogramPlot", ImVec2(-1, -1))) {
-            // Dummy data for now
-            static float values[50];
-            static bool initialized = false;
-            if (!initialized) {
-                for (int i = 0; i < 50; ++i) {
-                    values[i] = static_cast<float>(rand() % 100) / 100.0f; // random 0–1
-                }
-                initialized = true;
-            }
+        // Render Main Histogram using ImPlot
+        PrecomputedHistogram& hist = oe->heuristicData.mainHistogram;
 
-            ImPlot::SetupAxes("Bin", "Frequency");
-            ImPlot::PlotHistogram("Entropy", values, 50, 10); // 50 bins, scale = 10
+        // Only draw if we actually have data (non-empty bins)
+        bool hasData = std::any_of(hist.binCounts.begin(), hist.binCounts.end(),
+                                [](int c){ return c > 0; });
+
+        if (ImPlot::BeginPlot("##MainHistogramPlot", ImVec2(-1, -1))) {
+            // Setup axes with auto-fit so they expand to your histogram range
+            ImPlot::SetupAxes("Value", "Frequency", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
+
+            PrecomputedHistogram& hist = oe->heuristicData.mainHistogram;
+            bool hasData = std::any_of(hist.binCounts.begin(), hist.binCounts.end(),
+                                    [](int c){ return c > 0; });
+
+            if (hasData) {
+                static std::vector<double> xs, ys;
+                xs.resize(hist.binCount);
+                ys.resize(hist.binCount);
+
+                for (int i = 0; i < hist.binCount; i++) {
+                    xs[i] = hist.minValue + (i + 0.5) * hist.binWidth;
+                    ys[i] = static_cast<double>(hist.binCounts[i]);
+                }
+
+                ImPlot::PlotBars("Samples", xs.data(), ys.data(), hist.binCount, hist.binWidth);
+            }
 
             ImPlot::EndPlot();
         }
@@ -171,7 +184,7 @@ void HeuristicManager::RenderMainHistogramConfigPopup() {
         }
 
         if (ImGui::Button("Process uploaded file")) {
-            m_dataManager->processHistogramForProject(*m_currentProject, m_uiState->selectedOEIndex);
+            oe->heuristicData.mainHistogram = m_dataManager->processHistogramForProject(*m_currentProject, m_uiState->selectedOEIndex);
         }
 
         ImVec2 windowSize = ImGui::GetWindowSize();

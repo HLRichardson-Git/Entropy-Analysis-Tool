@@ -1,6 +1,8 @@
 
 #pragma once
 
+#include "../data/histogram/histogram.h"
+
 #include <string>
 #include <vector>
 
@@ -13,6 +15,8 @@ enum class Tabs {
 
 struct HeuristicData {
     std::string heuristicFilePath;
+
+    PrecomputedHistogram mainHistogram;
 };
 
 struct OperationalEnvironment {

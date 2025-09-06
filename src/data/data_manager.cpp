@@ -88,7 +88,6 @@ fs::path DataManager::NewProject(const std::string& vendor, const std::string& r
 
     nlohmann::json projectTemplate;
     projectTemplate["name"] = projectName;
-    //projectTemplate["path"] = fs::relative(projectJsonPath, fs::current_path()).string();
     projectTemplate["path"] = fs::relative(projectDir, fs::current_path()).string();
     projectTemplate["currentTabIndex"] = 0;
     projectTemplate["hasJentHeuristic"] = true;
@@ -132,7 +131,6 @@ Project DataManager::LoadProject(const std::string& filename) {
     }
 
     // Store the path (absolute internally)
-    //proj.path = fullPath.string();
     proj.path = fullPath.parent_path().string();
 
     // Load operational environments
@@ -188,13 +186,11 @@ void DataManager::SaveProject(Project& project, Config::AppConfig& appConfig) {
     UpdateOEsForProject(project);
 
     fs::path projectDir = project.path;
-    //fs::path projectJsonPath = project.path;
     fs::path projectJsonPath = projectDir / "project.json";
 
     // Build JSON template similar to NewProject
     nlohmann::json projectJson;
     projectJson["name"] = project.name;
-    //projectJson["path"] = fs::relative(projectJsonPath, fs::current_path()).string();
     projectJson["path"] = fs::relative(projectDir, fs::current_path()).string();
     projectJson["currentTabIndex"] = 0;
     projectJson["hasJentHeuristic"] = true;
@@ -235,8 +231,6 @@ void DataManager::SaveProject(Project& project, Config::AppConfig& appConfig) {
 void DataManager::AddOEToProject(Project& project, const std::string& oeName, Config::AppConfig& appConfig) {
     if (project.name.empty() || project.path.empty()) return;
 
-    //fs::path projectJsonPath = project.path;
-    //fs::path projectDir = projectJsonPath.parent_path();
     fs::path projectDir = project.path;
     fs::path projectJsonPath = projectDir / "project.json";
 
@@ -323,8 +317,6 @@ void DataManager::DeleteOE(Project& project, int oeIndex, Config::AppConfig& app
     // Identify the OE
     OperationalEnvironment oeToDelete = project.operationalEnvironments[oeIndex];
 
-    //fs::path projectJsonPath = project.path;
-    //fs::path projectDir = projectJsonPath.parent_path();
     fs::path projectDir = project.path;
     fs::path projectJsonPath = projectDir / "project.json";
 
@@ -448,30 +440,12 @@ void DataManager::UpdateOEsForProject(Project& project) {
     }
 }
 
-#include <chrono>
 // Heuristic
 PrecomputedHistogram DataManager::processHistogramForProject(Project& project, int oeIndex) {
-    PrecomputedHistogram hist;
-
     // Construct full path to raw sample file
     fs::path filePath = fs::path(project.operationalEnvironments[oeIndex].heuristicData.heuristicFilePath);
 
-    // Read samples from file
-    //std::vector<double> samples = loadSamplesFromFile(filePath, 1000000);
-    //std::cout << std::to_string(samples.size()) << std::endl;
-
-    // Compute histogram
-    //hist = computeHistogramBins(samples);
-    //hist = computeHistogramFromFile(filePath);
-
-    auto start = std::chrono::high_resolution_clock::now();
-
-    hist = computeHistogramFromFile(filePath);
-
-    auto end = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-
-    std::cout << "Histogram computation took " << duration << " ms\n";
+    PrecomputedHistogram hist = computeHistogramFromFile(filePath);
 
     return hist;
 }
