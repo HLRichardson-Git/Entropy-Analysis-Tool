@@ -22,7 +22,7 @@ namespace fs = std::filesystem;
 namespace fs = std::filesystem;
 
 struct PrecomputedHistogram {
-    static constexpr int binCount = 1000;
+    static constexpr int binCount = 2500;
     double minValue = 0.0;
     double maxValue = 0.0;
     double binWidth = 0.0;

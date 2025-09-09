@@ -151,18 +151,57 @@ Project DataManager::LoadProject(const std::string& filename) {
                 continue; // skip this OE
             }
 
-            // Optional: check that the name inside the oe.json matches the expected name
+            // Parse oe.json file
             std::ifstream oeIn(oeJsonPath);
             if (oeIn) {
                 try {
                     nlohmann::json oeFileJson;
                     oeIn >> oeFileJson;
+
+                    // Check name matches
                     std::string nameInFile = oeFileJson.value("name", "");
                     if (nameInFile != oe.oeName) {
                         std::cerr << "Warning: OE name mismatch in " << oeJsonPath 
                                 << " (expected: " << oe.oeName << ", found: " << nameInFile << ")\n";
                         continue; // skip this OE
                     }
+
+                    // Load heuristic data if present
+                    if (oeFileJson.contains("heuristicData") && oeFileJson["heuristicData"].is_object()) {
+                    auto& heuristicJson = oeFileJson["heuristicData"];
+
+                    if (heuristicJson.contains("mainHistogram") && heuristicJson["mainHistogram"].is_object()) {
+                        auto& mainHistJson = heuristicJson["mainHistogram"];
+
+                        if (mainHistJson.contains("heuristicFilePath") && mainHistJson["heuristicFilePath"].is_string()) {
+                            oe.heuristicData.heuristicFilePath = mainHistJson["heuristicFilePath"].get<std::string>();
+                        }
+
+                        // Load precomputed histogram if available
+                        if (mainHistJson.contains("computedBins") && mainHistJson["computedBins"].is_array()) {
+                            auto& h = oe.heuristicData.mainHistogram;
+
+                            if (mainHistJson.contains("minValue") && mainHistJson["minValue"].is_number()) {
+                                h.minValue = mainHistJson["minValue"].get<double>();
+                            }
+                            if (mainHistJson.contains("maxValue") && mainHistJson["maxValue"].is_number()) {
+                                h.maxValue = mainHistJson["maxValue"].get<double>();
+                            }
+
+                            // Compute bin width from saved values
+                            h.binWidth = (h.maxValue - h.minValue) / h.binCounts.size();
+
+                            // Copy counts
+                            size_t i = 0;
+                            for (auto& bin : mainHistJson["computedBins"]) {
+                                if (bin.is_number_integer() && i < h.binCounts.size()) {
+                                    h.binCounts[i++] = bin.get<int>();
+                                }
+                            }
+                        }
+                    }
+                }
+
                 } catch (const std::exception& e) {
                     std::cerr << "Warning: Failed to parse OE JSON file: " << oeJsonPath 
                             << " (" << e.what() << ")\n";
@@ -421,6 +460,16 @@ void DataManager::UpdateOEsForProject(Project& project) {
         if (fs::exists(oldDir) && oldDir != newDir) {
             try {
                 fs::rename(oldDir, newDir);
+
+                // If heuristic path pointed to oldDir, update it
+                if (!oe.heuristicData.heuristicFilePath.empty()) {
+                    fs::path oldHeuristicPath = oe.heuristicData.heuristicFilePath;
+                    if (oldHeuristicPath.string().find(oldDir.string()) == 0) {
+                        fs::path relativePath = fs::relative(oldHeuristicPath, oldDir);
+                        fs::path newHeuristicPath = newDir / relativePath;
+                        oe.heuristicData.heuristicFilePath = newHeuristicPath.string();
+                    }
+                }
             } catch (const std::exception& e) {
                 std::cerr << "Failed to rename OE directory: " << e.what() << std::endl;
             }
@@ -429,6 +478,26 @@ void DataManager::UpdateOEsForProject(Project& project) {
         // Update oe.json in new directory
         nlohmann::json oeJson;
         oeJson["name"] = oe.oeName;
+
+        nlohmann::json heuristicJson;
+
+        // Only save heuristic file path if it exists
+        if (!oe.heuristicData.heuristicFilePath.empty()) {
+            nlohmann::json mainHistogramJson;
+            mainHistogramJson["heuristicFilePath"] = oe.heuristicData.heuristicFilePath;
+
+            // Save histogram stats if available
+            if (oe.heuristicData.mainHistogram.binCounts.size() > 0) {
+                mainHistogramJson["minValue"] = oe.heuristicData.mainHistogram.minValue;
+                mainHistogramJson["maxValue"] = oe.heuristicData.mainHistogram.maxValue;
+                mainHistogramJson["computedBins"] = oe.heuristicData.mainHistogram.binCounts;
+            }
+
+            heuristicJson["mainHistogram"] = mainHistogramJson;
+        }
+
+        oeJson["heuristicData"] = heuristicJson;
+
         fs::path oeJsonPath = newDir / "oe.json";
         {
             std::ofstream out(oeJsonPath);
