@@ -511,11 +511,16 @@ void DataManager::UpdateOEsForProject(Project& project) {
 }
 
 // Heuristic
-void DataManager::processHistogramForProject(Project& project, int oeIndex, ThreadPool& pool) {
-    fs::path filePath = fs::path(project.operationalEnvironments[oeIndex].heuristicData.heuristicFilePath);
-    pool.Enqueue([this, oeIndex, projectPtr = &project, filePath]() {
-        PrecomputedHistogram hist = computeHistogramFromFile(filePath);
-        auto& oe = projectPtr->operationalEnvironments[oeIndex];
+void DataManager::processHistogramForProject(Project& project, int oeIndex, ThreadPool& pool, NotificationCallback notify) {
+    auto& oe = project.operationalEnvironments[oeIndex];
+
+    pool.Enqueue([&, oeIndex, notify]() {
+        if (notify) notify("Processing histogram...", 5.0f, ImVec4(0.1f, 0.7f, 1.0f, 1.0f)); // info blue
+
+        PrecomputedHistogram hist = computeHistogramFromFile(oe.heuristicData.heuristicFilePath);
+
         oe.heuristicData.mainHistogram = std::move(hist);
+
+        if (notify) notify("Histogram processing complete!", 5.0f, ImVec4(0.2f, 1.0f, 0.2f, 1.0f)); // green
     });
 }

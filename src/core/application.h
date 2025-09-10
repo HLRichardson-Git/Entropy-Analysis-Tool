@@ -26,7 +26,6 @@ private:
     ThreadPool& GetThreadPool() { return threadPool; }
 
 public:
-    //Application() {}
     Application() 
         : threadPool([]{
             unsigned int n = std::thread::hardware_concurrency();

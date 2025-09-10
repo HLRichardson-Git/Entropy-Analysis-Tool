@@ -14,6 +14,8 @@
 
 namespace fs = std::filesystem;
 
+using NotificationCallback = std::function<void(const std::string&, float, ImVec4)>;
+
 class DataManager {
 private:    
     std::string current_project_file;
@@ -41,5 +43,5 @@ public:
     void DeleteOE(Project& project, int oeIndex, Config::AppConfig& appConfig);
 
     // Heuristic
-    void processHistogramForProject(Project& project, int oeIndex, ThreadPool& pool);
+    void processHistogramForProject(Project& project, int oeIndex, ThreadPool& pool, NotificationCallback notify);
 };
