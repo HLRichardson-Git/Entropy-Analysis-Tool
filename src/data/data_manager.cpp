@@ -182,14 +182,14 @@ Project DataManager::LoadProject(const std::string& filename) {
                             auto& h = oe.heuristicData.mainHistogram;
 
                             if (mainHistJson.contains("minValue") && mainHistJson["minValue"].is_number()) {
-                                h.minValue = mainHistJson["minValue"].get<double>();
+                                h.minValue = mainHistJson["minValue"].get<unsigned int>();
                             }
                             if (mainHistJson.contains("maxValue") && mainHistJson["maxValue"].is_number()) {
-                                h.maxValue = mainHistJson["maxValue"].get<double>();
+                                h.maxValue = mainHistJson["maxValue"].get<unsigned int>();
                             }
-
-                            // Compute bin width from saved values
-                            h.binWidth = (h.maxValue - h.minValue) / h.binCounts.size();
+                            if (mainHistJson.contains("binWidth")) {
+                                h.binWidth = mainHistJson["binWidth"].get<double>();
+                            }
 
                             // Copy counts
                             size_t i = 0;
@@ -490,6 +490,7 @@ void DataManager::UpdateOEsForProject(Project& project) {
             if (oe.heuristicData.mainHistogram.binCounts.size() > 0) {
                 mainHistogramJson["minValue"] = oe.heuristicData.mainHistogram.minValue;
                 mainHistogramJson["maxValue"] = oe.heuristicData.mainHistogram.maxValue;
+                mainHistogramJson["binWidth"] = oe.heuristicData.mainHistogram.binWidth;
                 mainHistogramJson["computedBins"] = oe.heuristicData.mainHistogram.binCounts;
             }
 
@@ -510,11 +511,11 @@ void DataManager::UpdateOEsForProject(Project& project) {
 }
 
 // Heuristic
-PrecomputedHistogram DataManager::processHistogramForProject(Project& project, int oeIndex) {
-    // Construct full path to raw sample file
+void DataManager::processHistogramForProject(Project& project, int oeIndex, ThreadPool& pool) {
     fs::path filePath = fs::path(project.operationalEnvironments[oeIndex].heuristicData.heuristicFilePath);
-
-    PrecomputedHistogram hist = computeHistogramFromFile(filePath);
-
-    return hist;
+    pool.Enqueue([this, oeIndex, projectPtr = &project, filePath]() {
+        PrecomputedHistogram hist = computeHistogramFromFile(filePath);
+        auto& oe = projectPtr->operationalEnvironments[oeIndex];
+        oe.heuristicData.mainHistogram = std::move(hist);
+    });
 }

@@ -1,12 +1,7 @@
 
 #pragma once
 
-#include <array>
-#include <vector>
-#include <string>
-#include <filesystem>
-
-namespace fs = std::filesystem;
+#include "../../core/thread_pool/thread_pool.h"
 
 #include <array>
 #include <string>
@@ -22,15 +17,12 @@ namespace fs = std::filesystem;
 namespace fs = std::filesystem;
 
 struct PrecomputedHistogram {
-    static constexpr int binCount = 2500;
-    double minValue = 0.0;
-    double maxValue = 0.0;
+    static constexpr int binCount = 1500;
+    unsigned int minValue = 0;
+    unsigned int maxValue = 0;
     double binWidth = 0.0;
     std::array<int, binCount> binCounts{};
 };
-
-// Helper to read the first number from a line
-bool parseFirstNumber(const std::string& line, double& value);
 
 // Compute histogram from a file
 PrecomputedHistogram computeHistogramFromFile(const fs::path& filePath);

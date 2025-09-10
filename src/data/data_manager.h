@@ -5,9 +5,11 @@
 #include <memory>
 #include <functional>
 #include <filesystem>
+#include <future>
 
 #include "models.h"
 #include "../core/config.h"
+#include "../core/thread_pool/thread_pool.h"
 #include "histogram/histogram.h"
 
 namespace fs = std::filesystem;
@@ -39,5 +41,5 @@ public:
     void DeleteOE(Project& project, int oeIndex, Config::AppConfig& appConfig);
 
     // Heuristic
-    PrecomputedHistogram processHistogramForProject(Project& project, int oeIndex);
+    void processHistogramForProject(Project& project, int oeIndex, ThreadPool& pool);
 };

@@ -3,6 +3,7 @@
 
 #include "../data/histogram/histogram.h"
 
+#include <future>
 #include <string>
 #include <vector>
 

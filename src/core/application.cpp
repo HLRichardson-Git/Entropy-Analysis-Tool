@@ -51,6 +51,8 @@ void Application::Update() {
             } else if constexpr (std::is_same_v<T, DeleteOECommand>) {
                 dataManager.DeleteOE(currentProject, command.oeIndex, config);
                 uiManager.OnProjectChanged(currentProject);
+            } else if constexpr (std::is_same_v<T, ProcessHistogramCommand>) {
+                dataManager.processHistogramForProject(currentProject, command.oeIndex, GetThreadPool());
             }
         }, cmd);
     }

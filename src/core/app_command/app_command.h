@@ -27,12 +27,17 @@ struct DeleteOECommand {
     int oeIndex;
 };
 
+struct ProcessHistogramCommand {
+    int oeIndex;
+};
+
 using AppCommand = std::variant<
     OpenProjectCommand,
     SaveProjectCommand,
     NewProjectCommand,
     AddOECommand,
-    DeleteOECommand
+    DeleteOECommand,
+    ProcessHistogramCommand
 >;
 
 class CommandQueue {

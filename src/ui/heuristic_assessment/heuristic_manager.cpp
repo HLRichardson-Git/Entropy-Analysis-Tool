@@ -184,7 +184,9 @@ void HeuristicManager::RenderMainHistogramConfigPopup() {
         }
 
         if (ImGui::Button("Process uploaded file")) {
-            oe->heuristicData.mainHistogram = m_dataManager->processHistogramForProject(*m_currentProject, m_uiState->selectedOEIndex);
+            if (m_onCommand) {
+                m_onCommand(ProcessHistogramCommand{ m_uiState->selectedOEIndex });
+            }
         }
 
         ImVec2 windowSize = ImGui::GetWindowSize();

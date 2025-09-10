@@ -23,8 +23,7 @@ inline const char* findNextNewline(const char* start, const char* end) {
 }
 
 // Process a chunk of data and extract integers
-void processChunk(const char* chunkStart, const char* chunkEnd, 
-                 std::vector<int>& numbers) {
+void processChunk(const char* chunkStart, const char* chunkEnd, std::vector<int>& numbers) {
     const char* current = chunkStart;
     
     // Reserve space to reduce reallocations
@@ -132,8 +131,8 @@ PrecomputedHistogram computeHistogramFromFile(const fs::path& filePath) {
     }
 
     // Histogram config
-    hist.minValue = static_cast<double>(minVal);
-    hist.maxValue = static_cast<double>(maxVal);
+    hist.minValue = minVal;
+    hist.maxValue = maxVal;
     hist.binWidth = static_cast<double>(maxVal - minVal) / PrecomputedHistogram::binCount;
 
     // --- Pass 2: Fill bins ---
