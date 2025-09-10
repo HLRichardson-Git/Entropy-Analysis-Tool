@@ -1,6 +1,8 @@
 
 #include "heuristic_manager.h"
 
+#include <algorithm>
+
 bool HeuristicManager::Initialize(DataManager* dataManager, Config::AppConfig* config, Project* project, UIState* uiState) {
     m_dataManager = dataManager;
     m_config = config;
@@ -165,6 +167,33 @@ void HeuristicManager::Render() {
                 }
 
                 ImPlot::PlotBars("Samples", xs.data(), ys.data(), hist.binCount, hist.binWidth);
+            }
+
+            // Draw regions as DragRects
+            for (size_t i = 0; i < oe->heuristicData.regions.size(); ++i) {
+                auto& region = oe->heuristicData.regions[i];
+                ImPlotRect& rect = region.rect;
+
+                ImPlotRect plotLimits = ImPlot::GetPlotLimits();
+
+                // Keep the rectangle Y full height
+                rect.Y.Min = plotLimits.Y.Min;
+                rect.Y.Max = plotLimits.Y.Max;
+
+                // Clamp X to the plot limits
+                rect.X.Min = std::max(rect.X.Min, plotLimits.X.Min);
+                rect.X.Max = std::min(rect.X.Max, plotLimits.X.Max);
+
+                // Enforce that X.Min is always <= X.Max
+                if (rect.X.Min > rect.X.Max) std::swap(rect.X.Min, rect.X.Max);
+
+                // Draw the draggable rectangle
+                ImPlot::DragRect(static_cast<int>(i), 
+                                &rect.X.Min, &rect.Y.Min,
+                                &rect.X.Max, &rect.Y.Max,
+                                region.color, 
+                                ImPlotDragToolFlags_None);
+
             }
 
             ImPlot::EndPlot();
