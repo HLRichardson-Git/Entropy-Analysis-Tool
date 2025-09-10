@@ -15,8 +15,8 @@ void HeuristicManager::Render() {
 
     float fullWidth = ImGui::GetContentRegionAvail().x;
 
-    float sidebarWidth = fullWidth * 0.20f;
-    float mainWidth    = fullWidth * 0.80f;
+    float sidebarWidth = 250.0f; // Hardcoded for simplicity
+    float mainWidth = fullWidth - sidebarWidth;
 
     auto oe = GetSelectedOE();
 
@@ -28,6 +28,56 @@ void HeuristicManager::Render() {
         std::string selectMainHistogramRegionsTitle = std::string(u8"\uf0fe") + "  Selected Regions";
         ImGui::Text(selectMainHistogramRegionsTitle.c_str());
         ImGui::PopFont();
+
+        for (size_t i = 0; i < oe->heuristicData.regions.size(); ++i) {
+            auto& region = oe->heuristicData.regions[i];
+
+            ImGui::PushID(static_cast<int>(i));
+
+            // Range controls
+            ImGui::SetNextItemWidth(140.0f);
+            int inputs[2] = { static_cast<int>(region.rect.X.Min), static_cast<int>(region.rect.X.Max) };
+            if (ImGui::InputInt2("##Range", inputs)) {
+                region.rect.X.Min = inputs[0];
+                region.rect.X.Max = inputs[1];
+            }
+
+            ImGui::SameLine();
+            if (ImGui::Button("Delete")) {
+                oe->heuristicData.regions.erase(oe->heuristicData.regions.begin() + i);
+                ImGui::PopID();
+                break; // stop processing further to avoid invalid memory access
+            }
+
+            ImGui::SameLine();
+            ImGui::ColorEdit4("##Color", (float*)&region.color,
+                ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaBar);
+
+            ImGui::PopID();
+        }
+
+        ImGui::Separator();
+        if (ImGui::Button("Add Selection")) {
+            HistogramRegion region;
+            unsigned int minValue = oe->heuristicData.mainHistogram.minValue;
+            unsigned int maxValue = oe->heuristicData.mainHistogram.maxValue;
+            region.rect = ImPlotRect(minValue, maxValue, 0, 100);
+
+            static const std::vector<ImVec4> defaultColors = {
+                ImVec4(0.840f, 0.283f, 0.283f, 0.25f), // Red
+                ImVec4(0.6f, 0.95f, 0.6f, 0.25f),      // Green
+                ImVec4(0.95f, 0.95f, 0.6f, 0.25f),     // Yellow
+                ImVec4(0.6f, 0.6f, 0.95f, 0.25f),      // Blue
+                ImVec4(0.95f, 0.6f, 0.95f, 0.25f),     // Magenta
+                ImVec4(0.6f, 0.95f, 0.95f, 0.25f),     // Cyan
+                ImVec4(0.95f, 0.683f, 0.221f, 0.25f),  // Orange
+            };
+            static size_t nextColorIndex = 0;
+            region.color = defaultColors[nextColorIndex % defaultColors.size()];
+            nextColorIndex++;
+
+            oe->heuristicData.regions.push_back(std::move(region));
+        }
     }
     ImGui::EndChild();
 

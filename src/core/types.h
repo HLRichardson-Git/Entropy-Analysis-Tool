@@ -8,16 +8,24 @@
 #include <vector>
 
 #include <imgui.h>
+#include <implot.h>
 
 enum class Tabs {
     StatisticalAssessment,
     HeuristicAssessment
 };
 
+struct HistogramRegion {
+    ImPlotRect rect;   // the draggable rectangle
+    ImVec4 color;      // user-selected color
+    bool active = true;
+};
+
 struct HeuristicData {
     std::string heuristicFilePath;
 
     PrecomputedHistogram mainHistogram;
+    std::vector<HistogramRegion> regions;
 };
 
 struct OperationalEnvironment {
