@@ -59,6 +59,15 @@ void HeuristicManager::Render() {
         }
 
         ImGui::Separator();
+
+        // Disable "Add Selection" if histogram has no data
+        bool hasHistogram = std::any_of(
+            oe->heuristicData.mainHistogram.binCounts.begin(),
+            oe->heuristicData.mainHistogram.binCounts.end(),
+            [](int c){ return c > 0; }
+        );
+
+        ImGui::BeginDisabled(!hasHistogram);
         if (ImGui::Button("Add Selection")) {
             HistogramRegion region;
             unsigned int minValue = oe->heuristicData.mainHistogram.minValue;
@@ -80,6 +89,7 @@ void HeuristicManager::Render() {
 
             oe->heuristicData.regions.push_back(std::move(region));
         }
+        ImGui::EndDisabled();
     }
     ImGui::EndChild();
 
@@ -148,8 +158,9 @@ void HeuristicManager::Render() {
         bool hasData = std::any_of(hist.binCounts.begin(), hist.binCounts.end(),
                                 [](int c){ return c > 0; });
 
-        if (ImPlot::BeginPlot("##MainHistogramPlot", ImVec2(-1, -1))) {
-            // Setup axes with auto-fit so they expand to your histogram range
+        std::string plotLabel = "##MainHistogramPlot_" + oe->oeName;
+        if (ImPlot::BeginPlot(plotLabel.c_str(), ImVec2(-1, -1))) {
+            // Setup axes with auto-fit so they expand to the histogram range
             ImPlot::SetupAxes("Value", "Frequency", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
 
             PrecomputedHistogram& hist = oe->heuristicData.mainHistogram;
@@ -176,16 +187,9 @@ void HeuristicManager::Render() {
 
                 ImPlotRect plotLimits = ImPlot::GetPlotLimits();
 
-                // Keep the rectangle Y full height
+                // Keep the rectangle Y full height of the plot
                 rect.Y.Min = plotLimits.Y.Min;
                 rect.Y.Max = plotLimits.Y.Max;
-
-                // Clamp X to the plot limits
-                rect.X.Min = std::max(rect.X.Min, plotLimits.X.Min);
-                rect.X.Max = std::min(rect.X.Max, plotLimits.X.Max);
-
-                // Enforce that X.Min is always <= X.Max
-                if (rect.X.Min > rect.X.Max) std::swap(rect.X.Min, rect.X.Max);
 
                 // Draw the draggable rectangle
                 ImPlot::DragRect(static_cast<int>(i), 
@@ -194,6 +198,12 @@ void HeuristicManager::Render() {
                                 region.color, 
                                 ImPlotDragToolFlags_None);
 
+                // Clamp X to histogram min/max after dragging
+                rect.X.Min = std::max(rect.X.Min, static_cast<double>(oe->heuristicData.mainHistogram.minValue));
+                rect.X.Max = std::min(rect.X.Max, static_cast<double>(oe->heuristicData.mainHistogram.maxValue));
+
+                // Ensure min <= max
+                if (rect.X.Min > rect.X.Max) std::swap(rect.X.Min, rect.X.Max);
             }
 
             ImPlot::EndPlot();

@@ -168,40 +168,76 @@ Project DataManager::LoadProject(const std::string& filename) {
 
                     // Load heuristic data if present
                     if (oeFileJson.contains("heuristicData") && oeFileJson["heuristicData"].is_object()) {
-                    auto& heuristicJson = oeFileJson["heuristicData"];
+                        auto& heuristicJson = oeFileJson["heuristicData"];
 
-                    if (heuristicJson.contains("mainHistogram") && heuristicJson["mainHistogram"].is_object()) {
-                        auto& mainHistJson = heuristicJson["mainHistogram"];
+                        if (heuristicJson.contains("mainHistogram") && heuristicJson["mainHistogram"].is_object()) {
+                            auto& mainHistJson = heuristicJson["mainHistogram"];
 
-                        if (mainHistJson.contains("heuristicFilePath") && mainHistJson["heuristicFilePath"].is_string()) {
-                            oe.heuristicData.heuristicFilePath = mainHistJson["heuristicFilePath"].get<std::string>();
-                        }
-
-                        // Load precomputed histogram if available
-                        if (mainHistJson.contains("computedBins") && mainHistJson["computedBins"].is_array()) {
-                            auto& h = oe.heuristicData.mainHistogram;
-
-                            if (mainHistJson.contains("minValue") && mainHistJson["minValue"].is_number()) {
-                                h.minValue = mainHistJson["minValue"].get<unsigned int>();
-                            }
-                            if (mainHistJson.contains("maxValue") && mainHistJson["maxValue"].is_number()) {
-                                h.maxValue = mainHistJson["maxValue"].get<unsigned int>();
-                            }
-                            if (mainHistJson.contains("binWidth")) {
-                                h.binWidth = mainHistJson["binWidth"].get<double>();
+                            if (mainHistJson.contains("heuristicFilePath") && mainHistJson["heuristicFilePath"].is_string()) {
+                                oe.heuristicData.heuristicFilePath = mainHistJson["heuristicFilePath"].get<std::string>();
                             }
 
-                            // Copy counts
-                            size_t i = 0;
-                            for (auto& bin : mainHistJson["computedBins"]) {
-                                if (bin.is_number_integer() && i < h.binCounts.size()) {
-                                    h.binCounts[i++] = bin.get<int>();
+                            // Load precomputed histogram if available
+                            if (mainHistJson.contains("computedBins") && mainHistJson["computedBins"].is_array()) {
+                                auto& h = oe.heuristicData.mainHistogram;
+
+                                if (mainHistJson.contains("minValue") && mainHistJson["minValue"].is_number()) {
+                                    h.minValue = mainHistJson["minValue"].get<unsigned int>();
+                                }
+                                if (mainHistJson.contains("maxValue") && mainHistJson["maxValue"].is_number()) {
+                                    h.maxValue = mainHistJson["maxValue"].get<unsigned int>();
+                                }
+                                if (mainHistJson.contains("binWidth")) {
+                                    h.binWidth = mainHistJson["binWidth"].get<double>();
+                                }
+
+                                // Copy counts
+                                size_t i = 0;
+                                for (auto& bin : mainHistJson["computedBins"]) {
+                                    if (bin.is_number_integer() && i < h.binCounts.size()) {
+                                        h.binCounts[i++] = bin.get<int>();
+                                    }
                                 }
                             }
                         }
-                    }
-                }
 
+                        // Load subHistograms if present
+                        if (heuristicJson.contains("subHistograms") && heuristicJson["subHistograms"].is_array()) {
+                            for (auto& subHistJson : heuristicJson["subHistograms"]) {
+                                if (!subHistJson.is_object()) continue;
+
+                                HistogramRegion region;
+
+                                // Load min/max values safely as double
+                                double minVal = subHistJson.value("min", 0.0);
+                                double maxVal = subHistJson.value("max", minVal); // fallback to min if missing
+
+                                // Ensure min <= max
+                                if (minVal > maxVal) std::swap(minVal, maxVal);
+
+                                region.rect.X.Min = minVal;
+                                region.rect.X.Max = maxVal;
+
+                                // Y range will be set dynamically during rendering, so initialize with 0
+                                region.rect.Y.Min = 0.0;
+                                region.rect.Y.Max = 0.0;
+
+                                // Load color, default to red if missing
+                                if (subHistJson.contains("color") && subHistJson["color"].is_array() && subHistJson["color"].size() == 4) {
+                                    region.color.x = subHistJson["color"][0].get<float>();
+                                    region.color.y = subHistJson["color"][1].get<float>();
+                                    region.color.z = subHistJson["color"][2].get<float>();
+                                    region.color.w = subHistJson["color"][3].get<float>();
+                                } else {
+                                    region.color = ImVec4(0.84f, 0.28f, 0.28f, 0.25f); // default red
+                                }
+
+                                // Add to regions vector
+                                oe.heuristicData.regions.push_back(std::move(region));
+                            }
+                        }
+                    }
+                        
                 } catch (const std::exception& e) {
                     std::cerr << "Warning: Failed to parse OE JSON file: " << oeJsonPath 
                             << " (" << e.what() << ")\n";
@@ -494,7 +530,18 @@ void DataManager::UpdateOEsForProject(Project& project) {
                 mainHistogramJson["computedBins"] = oe.heuristicData.mainHistogram.binCounts;
             }
 
+            // --- Save subHistograms ---
+            nlohmann::json subHistogramsJson = nlohmann::json::array();
+            for (const auto& region : oe.heuristicData.regions) {
+                nlohmann::json subHist;
+                subHist["min"] = region.rect.X.Min;
+                subHist["max"] = region.rect.X.Max;
+                subHist["color"] = { region.color.x, region.color.y, region.color.z, region.color.w };
+                subHistogramsJson.push_back(subHist);
+            }
+
             heuristicJson["mainHistogram"] = mainHistogramJson;
+            heuristicJson["subHistograms"] = subHistogramsJson;
         }
 
         oeJson["heuristicData"] = heuristicJson;
