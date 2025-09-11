@@ -24,12 +24,14 @@ void HeuristicManager::Render() {
 
     // Sidebar
     ImGui::PushStyleColor(ImGuiCol_ChildBg, Config::LIGHT_BACKGROUND_COLOR);
-    ImGui::BeginChild("SelectMainHistogramRegions", ImVec2(sidebarWidth, 360), true);
+    ImGui::BeginChild("SelectMainHistogramRegions", ImVec2(sidebarWidth, 425), true);
     {
         ImGui::PushFont(Config::fontH3_Bold);
         std::string selectMainHistogramRegionsTitle = std::string(u8"\uf0fe") + "  Selected Regions";
         ImGui::Text(selectMainHistogramRegionsTitle.c_str());
         ImGui::PopFont();
+
+        ImGui::PushFont(Config::normal);
 
         for (size_t i = 0; i < oe->heuristicData.regions.size(); ++i) {
             auto& region = oe->heuristicData.regions[i];
@@ -90,13 +92,15 @@ void HeuristicManager::Render() {
             oe->heuristicData.regions.push_back(std::move(region));
         }
         ImGui::EndDisabled();
+
+        ImGui::PopFont();
     }
     ImGui::EndChild();
 
     ImGui::SameLine();
 
     // Main content
-    ImGui::BeginChild("MainHistogram", ImVec2(mainWidth - 10.0f, 360), true);
+    ImGui::BeginChild("MainHistogram", ImVec2(mainWidth - 10.0f, 425), true);
     {
         // Text on the left
         ImGui::PushFont(Config::fontH3_Bold);
@@ -159,7 +163,7 @@ void HeuristicManager::Render() {
                                 [](int c){ return c > 0; });
 
         std::string plotLabel = "##MainHistogramPlot_" + oe->oeName;
-        if (ImPlot::BeginPlot(plotLabel.c_str(), ImVec2(-1, -1))) {
+        if (ImPlot::BeginPlot(plotLabel.c_str(), ImVec2(-1, 300))) {
             // Setup axes with auto-fit so they expand to the histogram range
             ImPlot::SetupAxes("Value", "Frequency", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
 
@@ -177,7 +181,7 @@ void HeuristicManager::Render() {
                     ys[i] = static_cast<double>(hist.binCounts[i]);
                 }
 
-                ImPlot::PlotBars("Samples", xs.data(), ys.data(), hist.binCount, hist.binWidth);
+                ImPlot::PlotBars("##MainHistogramSamples", xs.data(), ys.data(), hist.binCount, hist.binWidth);
             }
 
             // Draw regions as DragRects
@@ -209,6 +213,154 @@ void HeuristicManager::Render() {
             ImPlot::EndPlot();
         }
 
+        // Metadata Area
+        ImGui::PushFont(Config::normal);
+        ImGui::Separator();
+        ImGui::Text("Main Histogram Metadata:");
+        ImGui::BulletText("Bins: %d", oe->heuristicData.mainHistogram.binCount);
+        ImGui::SameLine();
+        ImGui::BulletText("Min: %d", oe->heuristicData.mainHistogram.minValue);
+        ImGui::SameLine();
+        ImGui::BulletText("Max: %d", oe->heuristicData.mainHistogram.maxValue);
+        ImGui::SameLine();
+        ImGui::BulletText("Bin Width: %.2f", oe->heuristicData.mainHistogram.binWidth);
+        ImGui::PopFont();
+    }
+    ImGui::EndChild();
+
+    // Sub-Histograms
+    ImGui::BeginChild("SubHistograms", ImVec2(fullWidth, 0), true);
+    {
+        ImGui::PushFont(Config::fontH3_Bold);
+        std::string subHistogramsTitle = std::string(u8"\uf1fe") + "  Sub Histograms";
+        ImGui::Text(subHistogramsTitle.c_str());
+        ImGui::PopFont();
+        ImGui::Separator();
+
+        PrecomputedHistogram& hist = oe->heuristicData.mainHistogram;
+
+        for (size_t i = 0; i < oe->heuristicData.regions.size(); ++i) {
+            auto& region = oe->heuristicData.regions[i];
+
+            // Convert rect range to bin indexes
+            int binMin = static_cast<int>((region.rect.X.Min - hist.minValue) / hist.binWidth);
+            int binMax = static_cast<int>((region.rect.X.Max - hist.minValue) / hist.binWidth);
+            binMin = std::clamp(binMin, 0, hist.binCount - 1);
+            binMax = std::clamp(binMax, 0, hist.binCount - 1);
+            if (binMin > binMax) std::swap(binMin, binMax);
+
+            // Prepare sub-histogram data
+            std::vector<double> xs, ys;
+            xs.reserve(binMax - binMin + 1);
+            ys.reserve(binMax - binMin + 1);
+            for (int b = binMin; b <= binMax; b++) {
+                double xCenter = hist.minValue + (b + 0.5) * hist.binWidth;
+                xs.push_back(xCenter);
+                ys.push_back(static_cast<double>(hist.binCounts[b]));
+            }
+
+            // Each sub-histogram has its own child spanning full width
+            std::string childLabel = "SubHistogramChild_" + std::to_string(i);
+            ImGui::BeginChild(childLabel.c_str(), ImVec2(-1, 250), true);
+            {
+                // Left column (metadata + buttons)
+                ImGui::BeginChild(("SubMeta_" + std::to_string(i)).c_str(), ImVec2(sidebarWidth - 10.0f, -1), false);
+                {
+                    std::string regionTitle = "Region " + std::to_string(i + 1);
+
+                    // --- Title on the left ---
+                    ImGui::PushFont(Config::fontH3_Bold);
+                    ImGui::Text(regionTitle.c_str());
+                    ImGui::PopFont();
+
+                    // --- Buttons on the right ---
+                    ImVec2 runTestSize(30, 30);
+                    ImVec2 configSize(30, 30);
+                    float spacing = 6.0f;
+                    float totalWidth = runTestSize.x + spacing + configSize.x;
+
+                    float regionWidth = ImGui::GetContentRegionAvail().x;
+                    float startX = regionWidth - totalWidth + ImGui::GetStyle().ItemSpacing.x;
+
+                    ImGui::SameLine();
+                    ImGui::SetCursorPosX(startX - 16.0f);
+
+                    ImGui::PushFont(Config::normal);
+
+                    // Run Test button
+                    ImGui::PushStyleColor(ImGuiCol_Button,        Config::MINT_BUTTON.normal);
+                    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::MINT_BUTTON.hovered);
+                    ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::MINT_BUTTON.active);
+                    ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_DARK_CHARCOAL);
+                    {
+                        
+                        if (ImGui::Button(std::string(u8"\uf83e").c_str())) {
+                            // TODO: run test
+                        }
+                    }
+                    ImGui::PopStyleColor(4);
+
+                    ImGui::SameLine(0, spacing);
+
+                    // Config (cog) button
+                    ImGui::PushStyleColor(ImGuiCol_Button,        Config::WHITE_BUTTON.normal);
+                    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::WHITE_BUTTON.hovered);
+                    ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::WHITE_BUTTON.active);
+                    ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_DARK_CHARCOAL);
+                    {
+                        if (ImGui::Button((std::string(u8"\uf013").c_str()))) {
+                            // TODO: config
+                        }
+                    }
+                    ImGui::PopStyleColor(4);
+
+                    // --- Metadata below ---
+                    ImGui::Separator();
+                    ImGui::Text("%s Metadata:", regionTitle.c_str());
+                    ImGui::BulletText("Min: %d", (int)region.rect.X.Min);
+                    ImGui::BulletText("Max: %d", (int)region.rect.X.Max);
+
+                    int binStart = static_cast<int>((region.rect.X.Min - hist.minValue) / hist.binWidth);
+                    int binEnd   = static_cast<int>((region.rect.X.Max - hist.minValue) / hist.binWidth);
+                    binStart = std::max(0, binStart);
+                    binEnd   = std::min(hist.binCount - 1, binEnd);
+                    int subBinCount = std::max(0, binEnd - binStart + 1);
+
+                    ImGui::BulletText("Bins: %d", subBinCount);
+                    ImGui::BulletText("Bin Width: %.2f", hist.binWidth);
+
+                    ImGui::PopFont();
+                }
+                ImGui::EndChild();
+
+                ImGui::SameLine();
+
+                // Right column (plot)
+                ImGui::BeginChild(("SubPlot_" + std::to_string(i)).c_str(), ImVec2(-1, -1), false);
+                {
+                    std::string plotLabel = "##SubHistogramPlot_" + std::to_string(i);
+                    if (ImPlot::BeginPlot(plotLabel.c_str(), ImVec2(-1, -1))) {
+                        ImPlot::SetupAxes("Value", "Frequency",
+                                        ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
+
+                        if (!xs.empty()) {
+                            // Copy region color but make fully opaque
+                            ImVec4 opaqueColor = region.color;
+                            opaqueColor.w = 1.0f; // Force to not be transparent
+
+                            ImPlot::SetNextFillStyle(opaqueColor);
+                            ImPlot::PlotBars("##SubHistogramSamples", xs.data(), ys.data(), (int)xs.size(), hist.binWidth);
+                        }
+
+                        ImPlot::EndPlot();
+                    }
+                }
+                ImGui::EndChild();
+            }
+            ImGui::EndChild();
+
+            ImGui::Spacing();
+        }
     }
     ImGui::EndChild();
 
