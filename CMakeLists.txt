@@ -3,6 +3,19 @@ project(EntropyAnalysisTool LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 
+
+include(FetchContent)
+
+# Fetch Lib90B
+set(Lib90B_BUILD_TESTS OFF CACHE BOOL "Build unit tests" FORCE)
+
+FetchContent_Declare(
+    lib90b
+    URL https://github.com/HLRichardson-Git/Lib90B/archive/refs/tags/v0.1.zip
+)
+
+FetchContent_MakeAvailable(lib90b)
+
 # Include directories
 include_directories(
     ${PROJECT_SOURCE_DIR}/include
@@ -52,9 +65,17 @@ add_executable(${PROJECT_NAME}
     assets/resources.rc
 ) 
 
-target_link_libraries(${PROJECT_NAME} PRIVATE 
+target_link_libraries(${PROJECT_NAME} 
+PRIVATE 
     d3d11 
     d3dcompiler 
     dxguid 
     dwmapi
+    Lib90B
+)
+
+target_include_directories(${PROJECT_NAME} 
+    PRIVATE 
+        ${lib90b_SOURCE_DIR}/include
+        ${lib90b_SOURCE_DIR}/util
 )

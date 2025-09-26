@@ -3,6 +3,8 @@
 
 #include <algorithm>
 
+#include <lib90b/non_iid.h>
+
 bool HeuristicManager::Initialize(DataManager* dataManager, Config::AppConfig* config, Project* project, UIState* uiState) {
     m_dataManager = dataManager;
     m_config = config;
@@ -47,7 +49,8 @@ void HeuristicManager::Render() {
             }
 
             ImGui::SameLine();
-            if (ImGui::Button("Delete")) {
+            std::string deleteButton = std::string(u8"\uf1f8");
+            if (ImGui::Button(deleteButton.c_str())) {
                 oe->heuristicData.regions.erase(oe->heuristicData.regions.begin() + i);
                 ImGui::PopID();
                 break; // stop processing further to avoid invalid memory access
