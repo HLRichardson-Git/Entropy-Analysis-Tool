@@ -27,7 +27,7 @@ struct HistogramRegion {
     std::string convertedFilePath;
 
     std::string subFilePath;
-    size_t regionIndex = 0;
+    int regionIndex = 0;
 
     bool testsRunning = false;
     std::chrono::steady_clock::time_point startTime;

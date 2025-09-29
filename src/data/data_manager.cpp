@@ -574,3 +574,58 @@ void DataManager::processHistogramForProject(Project& project, int oeIndex, Thre
         if (notify) notify("Histogram processing complete!", 5.0f, ImVec4(0.2f, 1.0f, 0.2f, 1.0f)); // green
     });
 }
+
+bool DataManager::ConvertDecimalFile(
+    const std::filesystem::path& inputFilePath,
+    lib90b::EntropyInputData& outData,
+    std::string& outBinaryFilePath,
+    std::optional<double> minVal,
+    std::optional<double> maxVal,
+    int regionIndex)
+{
+    std::ifstream inFile(inputFilePath);
+    if (!inFile.is_open()) return false;
+
+    std::vector<uint8_t> symbols;
+    std::string line;
+
+    while (std::getline(inFile, line)) {
+        try {
+            double val = std::stod(line);
+
+            // If range is provided, skip values outside it
+            if ((minVal && val < minVal.value()) || (maxVal && val > maxVal.value())) {
+                continue;
+            }
+
+            uint64_t sample = static_cast<uint64_t>(val * 1e6); // scale if needed
+            uint8_t symbol = static_cast<uint8_t>(sample & 0xFF);
+            symbols.push_back(symbol);
+        } catch (...) {
+            continue; // skip invalid lines
+        }
+    }
+
+    if (symbols.empty()) return false;
+
+    // Fill EntropyInputData
+    outData.symbols = std::move(symbols);
+    outData.word_size = 8;
+    outData.alph_size = 256;
+
+    // Prepare output file path
+    fs::path inputPath(inputFilePath);
+    std::string stem = inputPath.stem().string();
+    std::string outFileName = stem;
+    if (regionIndex > 0) outFileName += "_region" + std::to_string(regionIndex);
+    fs::path outPath = inputPath.parent_path() / (outFileName + ".bin");
+
+    // Save binary file
+    std::ofstream outFile(outPath, std::ios::binary);
+    if (!outFile.is_open()) return false;
+    outFile.write(reinterpret_cast<const char*>(outData.symbols.data()), outData.symbols.size());
+    outFile.close();
+
+    outBinaryFilePath = outPath.string();
+    return true;
+}

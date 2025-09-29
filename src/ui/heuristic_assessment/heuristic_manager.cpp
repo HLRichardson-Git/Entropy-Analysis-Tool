@@ -5,81 +5,6 @@
 
 #include <lib90b/non_iid.h>
 
-static bool ConvertDecimalFileToEntropyData(const std::string& filePath, 
-                                     lib90b::EntropyInputData& outData,
-                                     std::string& outBinaryFilePath)
-{
-    std::ifstream inFile(filePath);
-    if (!inFile.is_open()) return false;
-
-    std::vector<uint8_t> symbols;
-    std::string line;
-
-    while (std::getline(inFile, line)) {
-        try {
-            double delta = std::stod(line);                  // parse decimal
-            uint64_t sample = static_cast<uint64_t>(delta * 1e6); // scale if needed
-            uint8_t symbol = static_cast<uint8_t>(sample & 0xFF); // mask bottom 8 bits
-            symbols.push_back(symbol);
-        } catch (...) {
-            continue; // skip invalid lines
-        }
-    }
-
-    if (symbols.empty()) return false;
-
-    // Fill EntropyInputData
-    outData.symbols = std::move(symbols);
-    outData.word_size = 8;
-    outData.alph_size = 256;
-
-    // Prepare output file path based on input file
-    fs::path inputPath(filePath);
-    fs::path outPath = inputPath.parent_path() / (inputPath.stem().string() + "_converted.bin");
-
-    // Save binary file
-    std::ofstream outFile(outPath, std::ios::binary);
-    if (!outFile.is_open()) return false;
-    outFile.write(reinterpret_cast<const char*>(outData.symbols.data()), outData.symbols.size());
-    outFile.close();
-
-    outBinaryFilePath = outPath.string();
-    return true;
-}
-
-static bool CreateSubHistogramFile(const std::string& inputFilePath,
-                                   const HistogramRegion& region,
-                                   std::string& outSubFilePath)
-{
-    std::ifstream inFile(inputFilePath);
-    if (!inFile.is_open()) return false;
-
-    fs::path inputPath(inputFilePath);
-    std::string stem = inputPath.stem().string();
-    fs::path outPath = inputPath.parent_path() / (stem + "_region" + std::to_string(region.regionIndex) + ".data");
-
-    std::ofstream outFile(outPath);
-    if (!outFile.is_open()) return false;
-
-    std::string line;
-    while (std::getline(inFile, line)) {
-        try {
-            double val = std::stod(line);
-            if (val >= region.rect.X.Min && val <= region.rect.X.Max) {
-                outFile << val << "\n";
-            }
-        } catch (...) {
-            continue; // skip invalid lines
-        }
-    }
-
-    inFile.close();
-    outFile.close();
-
-    outSubFilePath = outPath.string();
-    return true;
-}
-
 bool HeuristicManager::Initialize(DataManager* dataManager, Config::AppConfig* config, Project* project, UIState* uiState) {
     m_dataManager = dataManager;
     m_config = config;
@@ -168,7 +93,7 @@ void HeuristicManager::Render() {
             nextColorIndex++;
 
             region.regionIndex = static_cast<int>(oe->heuristicData.regions.size()) + 1;
-            
+
             oe->heuristicData.regions.push_back(std::move(region));
         }
         ImGui::EndDisabled();
@@ -215,21 +140,17 @@ void HeuristicManager::Render() {
                 auto oe = GetSelectedOE();
                 if (!oe || oe->heuristicData.heuristicFilePath.empty()) return;
 
-                if (!ConvertDecimalFileToEntropyData(oe->heuristicData.heuristicFilePath,
-                                                    oe->heuristicData.entropyData,
-                                                    oe->heuristicData.convertedFilePath)) {
-                    ImGui::OpenPopup("Error");
-                    return;
-                }
-
                 oe->heuristicData.testsRunning = true;
                 oe->heuristicData.startTime = std::chrono::steady_clock::now();
 
                 if (m_onCommand) {
+                    // regionIndex = 0 for main histogram
                     m_onCommand(RunStatisticalTestCommand{
-                        oe->heuristicData.convertedFilePath,
-                        std::shared_ptr<lib90b::NonIidResult>(&oe->heuristicData.entropyResults,
-                                        [](lib90b::NonIidResult*){})
+                        oe->heuristicData.heuristicFilePath,  // decimal input file
+                        std::shared_ptr<lib90b::NonIidResult>(&oe->heuristicData.entropyResults, [](lib90b::NonIidResult*){}),
+                        std::nullopt,  // min value
+                        std::nullopt,  // max value
+                        0              // region index
                     });
                 }
             }
@@ -384,7 +305,7 @@ void HeuristicManager::Render() {
 
             // Each sub-histogram has its own child spanning full width
             std::string childLabel = "SubHistogramChild_" + std::to_string(i);
-            ImGui::BeginChild(childLabel.c_str(), ImVec2(-1, 250), true);
+            ImGui::BeginChild(childLabel.c_str(), ImVec2(-1, 260), true);
             {
                 // Left column (metadata + buttons)
                 ImGui::BeginChild(("SubMeta_" + std::to_string(i)).c_str(), ImVec2(sidebarWidth - 10.0f, -1), false);
@@ -421,26 +342,17 @@ void HeuristicManager::Render() {
                             auto oe = GetSelectedOE();
                             if (!oe) return;
 
-                            if (!CreateSubHistogramFile(oe->heuristicData.heuristicFilePath, region, region.subFilePath)) {
-                                ImGui::OpenPopup("Error");
-                                return;
-                            }
-
-                            // Now run the usual conversion & statistical test
-                            if (!ConvertDecimalFileToEntropyData(region.subFilePath,
-                                                                region.entropyData,
-                                                                region.convertedFilePath)) {
-                                ImGui::OpenPopup("Error");
-                                return;
-                            }
-
+                            auto& region = oe->heuristicData.regions[i];
                             region.testsRunning = true;
                             region.startTime = std::chrono::steady_clock::now();
 
                             if (m_onCommand) {
                                 m_onCommand(RunStatisticalTestCommand{
-                                    region.convertedFilePath,
-                                    std::shared_ptr<lib90b::NonIidResult>(&region.entropyResults, [](lib90b::NonIidResult*){}) 
+                                    oe->heuristicData.heuristicFilePath,        // original decimal file
+                                    std::shared_ptr<lib90b::NonIidResult>(&region.entropyResults, [](lib90b::NonIidResult*){}),
+                                    region.rect.X.Min,                           // optional min
+                                    region.rect.X.Max,                           // optional max
+                                    region.regionIndex                           // sub-region index
                                 });
                             }
                         }

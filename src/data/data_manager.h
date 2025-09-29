@@ -44,4 +44,10 @@ public:
 
     // Heuristic
     void processHistogramForProject(Project& project, int oeIndex, ThreadPool& pool, NotificationCallback notify);
+    bool ConvertDecimalFile(const std::filesystem::path& inputFilePath,
+                            lib90b::EntropyInputData& outData,
+                            std::string& outBinaryFilePath,
+                            std::optional<double> minVal = std::nullopt,
+                            std::optional<double> maxVal = std::nullopt,
+                            int regionIndex = 0);
 };

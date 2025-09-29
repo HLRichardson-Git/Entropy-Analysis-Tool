@@ -34,13 +34,13 @@ struct ProcessHistogramCommand {
     int oeIndex;
 };
 
-struct RunStatisticalTestsCommand {
-    int oeIndex;
-};
-
 struct RunStatisticalTestCommand {
     std::filesystem::path inputFile;   
     std::shared_ptr<lib90b::NonIidResult> output;
+
+    std::optional<double> minValue;
+    std::optional<double> maxValue;
+    int regionIndex = 0;
 };
 
 using AppCommand = std::variant<
