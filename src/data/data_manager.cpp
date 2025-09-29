@@ -199,6 +199,22 @@ Project DataManager::LoadProject(const std::string& filename) {
                                     }
                                 }
                             }
+
+                            // Load main histogram statistical results
+                            if (mainHistJson.contains("nonIidResults") && mainHistJson["nonIidResults"].is_object()) {
+                                auto& statsJson = mainHistJson["nonIidResults"];
+                                auto& res = oe.heuristicData.entropyResults;
+
+                                if (statsJson.contains("H_original") && statsJson["H_original"].is_number()) {
+                                    res.H_original = statsJson["H_original"].get<double>();
+                                }
+                                if (statsJson.contains("H_bitstring") && statsJson["H_bitstring"].is_number()) {
+                                    res.H_bitstring = statsJson["H_bitstring"].get<double>();
+                                }
+                                if (statsJson.contains("min_entropy") && statsJson["min_entropy"].is_number()) {
+                                    res.min_entropy = statsJson["min_entropy"].get<double>();
+                                }
+                            }
                         }
 
                         // Load subHistograms if present
@@ -230,6 +246,22 @@ Project DataManager::LoadProject(const std::string& filename) {
                                     region.color.w = subHistJson["color"][3].get<float>();
                                 } else {
                                     region.color = ImVec4(0.84f, 0.28f, 0.28f, 0.25f); // default red
+                                }
+
+                                // Load subHistograms statistical results
+                                if (subHistJson.contains("nonIidResults") && subHistJson["nonIidResults"].is_object()) {
+                                    auto& statsJson = subHistJson["nonIidResults"];
+                                    auto& regionRes = region.entropyResults;
+
+                                    if (statsJson.contains("H_original") && statsJson["H_original"].is_number()) {
+                                        regionRes.H_original = statsJson["H_original"].get<double>();
+                                    }
+                                    if (statsJson.contains("H_bitstring") && statsJson["H_bitstring"].is_number()) {
+                                        regionRes.H_bitstring = statsJson["H_bitstring"].get<double>();
+                                    }
+                                    if (statsJson.contains("min_entropy") && statsJson["min_entropy"].is_number()) {
+                                        regionRes.min_entropy = statsJson["min_entropy"].get<double>();
+                                    }
                                 }
 
                                 // Set the regionIndex
@@ -533,6 +565,18 @@ void DataManager::UpdateOEsForProject(Project& project) {
                 mainHistogramJson["computedBins"] = oe.heuristicData.mainHistogram.binCounts;
             }
 
+            // Save main histogram Non-IID results
+            if (oe.heuristicData.entropyResults.min_entropy.has_value()) {
+                const auto& res = oe.heuristicData.entropyResults;
+                nlohmann::json resultsJson;
+
+                if (res.H_original.has_value()) resultsJson["H_original"] = res.H_original.value();
+                if (res.H_bitstring.has_value()) resultsJson["H_bitstring"] = res.H_bitstring.value();
+                resultsJson["min_entropy"] = res.min_entropy.value();
+
+                mainHistogramJson["nonIidResults"] = resultsJson;
+            }
+
             // --- Save subHistograms ---
             nlohmann::json subHistogramsJson = nlohmann::json::array();
             for (const auto& region : oe.heuristicData.regions) {
@@ -540,6 +584,19 @@ void DataManager::UpdateOEsForProject(Project& project) {
                 subHist["min"] = region.rect.X.Min;
                 subHist["max"] = region.rect.X.Max;
                 subHist["color"] = { region.color.x, region.color.y, region.color.z, region.color.w };
+
+                // Save statistical test / Non-IID results
+                if (region.entropyResults.min_entropy.has_value()) {
+                    const auto& res = region.entropyResults;
+                    nlohmann::json resultsJson;
+
+                    if (res.H_original.has_value()) resultsJson["H_original"] = res.H_original.value();
+                    if (res.H_bitstring.has_value()) resultsJson["H_bitstring"] = res.H_bitstring.value();
+                    resultsJson["min_entropy"] = res.min_entropy.value();
+
+                    subHist["nonIidResults"] = resultsJson;
+                }
+                
                 subHistogramsJson.push_back(subHist);
             }
 
