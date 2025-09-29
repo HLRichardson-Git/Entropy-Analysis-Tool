@@ -9,6 +9,8 @@
 
 #include <imgui.h>
 #include <implot.h>
+#include <lib90b/entropy_tests.h>
+#include <lib90b/non_iid.h>
 
 enum class Tabs {
     StatisticalAssessment,
@@ -19,13 +21,30 @@ struct HistogramRegion {
     ImPlotRect rect;   // the draggable rectangle
     ImVec4 color;      // user-selected color
     bool active = true;
+
+    lib90b::EntropyInputData entropyData;
+    lib90b::NonIidResult entropyResults;
+    std::string convertedFilePath;
+
+    std::string subFilePath;
+    size_t regionIndex = 0;
+
+    bool testsRunning = false;
+    std::chrono::steady_clock::time_point startTime;
 };
 
 struct HeuristicData {
     std::string heuristicFilePath;
+    std::string convertedFilePath;
 
     PrecomputedHistogram mainHistogram;
     std::vector<HistogramRegion> regions;
+
+    lib90b::EntropyInputData entropyData;
+    lib90b::NonIidResult entropyResults;
+
+    bool testsRunning = false;
+    std::chrono::steady_clock::time_point startTime;
 };
 
 struct OperationalEnvironment {

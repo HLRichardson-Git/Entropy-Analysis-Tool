@@ -5,6 +5,81 @@
 
 #include <lib90b/non_iid.h>
 
+static bool ConvertDecimalFileToEntropyData(const std::string& filePath, 
+                                     lib90b::EntropyInputData& outData,
+                                     std::string& outBinaryFilePath)
+{
+    std::ifstream inFile(filePath);
+    if (!inFile.is_open()) return false;
+
+    std::vector<uint8_t> symbols;
+    std::string line;
+
+    while (std::getline(inFile, line)) {
+        try {
+            double delta = std::stod(line);                  // parse decimal
+            uint64_t sample = static_cast<uint64_t>(delta * 1e6); // scale if needed
+            uint8_t symbol = static_cast<uint8_t>(sample & 0xFF); // mask bottom 8 bits
+            symbols.push_back(symbol);
+        } catch (...) {
+            continue; // skip invalid lines
+        }
+    }
+
+    if (symbols.empty()) return false;
+
+    // Fill EntropyInputData
+    outData.symbols = std::move(symbols);
+    outData.word_size = 8;
+    outData.alph_size = 256;
+
+    // Prepare output file path based on input file
+    fs::path inputPath(filePath);
+    fs::path outPath = inputPath.parent_path() / (inputPath.stem().string() + "_converted.bin");
+
+    // Save binary file
+    std::ofstream outFile(outPath, std::ios::binary);
+    if (!outFile.is_open()) return false;
+    outFile.write(reinterpret_cast<const char*>(outData.symbols.data()), outData.symbols.size());
+    outFile.close();
+
+    outBinaryFilePath = outPath.string();
+    return true;
+}
+
+static bool CreateSubHistogramFile(const std::string& inputFilePath,
+                                   const HistogramRegion& region,
+                                   std::string& outSubFilePath)
+{
+    std::ifstream inFile(inputFilePath);
+    if (!inFile.is_open()) return false;
+
+    fs::path inputPath(inputFilePath);
+    std::string stem = inputPath.stem().string();
+    fs::path outPath = inputPath.parent_path() / (stem + "_region" + std::to_string(region.regionIndex) + ".data");
+
+    std::ofstream outFile(outPath);
+    if (!outFile.is_open()) return false;
+
+    std::string line;
+    while (std::getline(inFile, line)) {
+        try {
+            double val = std::stod(line);
+            if (val >= region.rect.X.Min && val <= region.rect.X.Max) {
+                outFile << val << "\n";
+            }
+        } catch (...) {
+            continue; // skip invalid lines
+        }
+    }
+
+    inFile.close();
+    outFile.close();
+
+    outSubFilePath = outPath.string();
+    return true;
+}
+
 bool HeuristicManager::Initialize(DataManager* dataManager, Config::AppConfig* config, Project* project, UIState* uiState) {
     m_dataManager = dataManager;
     m_config = config;
@@ -26,7 +101,7 @@ void HeuristicManager::Render() {
 
     // Sidebar
     ImGui::PushStyleColor(ImGuiCol_ChildBg, Config::LIGHT_BACKGROUND_COLOR);
-    ImGui::BeginChild("SelectMainHistogramRegions", ImVec2(sidebarWidth, 425), true);
+    ImGui::BeginChild("SelectMainHistogramRegions", ImVec2(sidebarWidth, 460), true);
     {
         ImGui::PushFont(Config::fontH3_Bold);
         std::string selectMainHistogramRegionsTitle = std::string(u8"\uf0fe") + "  Selected Regions";
@@ -92,6 +167,8 @@ void HeuristicManager::Render() {
             region.color = defaultColors[nextColorIndex % defaultColors.size()];
             nextColorIndex++;
 
+            region.regionIndex = static_cast<int>(oe->heuristicData.regions.size()) + 1;
+            
             oe->heuristicData.regions.push_back(std::move(region));
         }
         ImGui::EndDisabled();
@@ -103,7 +180,7 @@ void HeuristicManager::Render() {
     ImGui::SameLine();
 
     // Main content
-    ImGui::BeginChild("MainHistogram", ImVec2(mainWidth - 10.0f, 425), true);
+    ImGui::BeginChild("MainHistogram", ImVec2(mainWidth - 10.0f, 460), true);
     {
         // Text on the left
         ImGui::PushFont(Config::fontH3_Bold);
@@ -135,7 +212,26 @@ void HeuristicManager::Render() {
         {
             std::string runStatisticalTestButton = std::string(u8"\uf83e") + "  Run Statistical Tests";
             if (ImGui::Button(runStatisticalTestButton.c_str(), statisticalTestSize)) {
-                
+                auto oe = GetSelectedOE();
+                if (!oe || oe->heuristicData.heuristicFilePath.empty()) return;
+
+                if (!ConvertDecimalFileToEntropyData(oe->heuristicData.heuristicFilePath,
+                                                    oe->heuristicData.entropyData,
+                                                    oe->heuristicData.convertedFilePath)) {
+                    ImGui::OpenPopup("Error");
+                    return;
+                }
+
+                oe->heuristicData.testsRunning = true;
+                oe->heuristicData.startTime = std::chrono::steady_clock::now();
+
+                if (m_onCommand) {
+                    m_onCommand(RunStatisticalTestCommand{
+                        oe->heuristicData.convertedFilePath,
+                        std::shared_ptr<lib90b::NonIidResult>(&oe->heuristicData.entropyResults,
+                                        [](lib90b::NonIidResult*){})
+                    });
+                }
             }
         }
         ImGui::PopStyleColor(4);
@@ -227,6 +323,30 @@ void HeuristicManager::Render() {
         ImGui::BulletText("Max: %d", oe->heuristicData.mainHistogram.maxValue);
         ImGui::SameLine();
         ImGui::BulletText("Bin Width: %.2f", oe->heuristicData.mainHistogram.binWidth);
+
+        ImGui::Separator();
+
+        // Render non-iid test results if available
+        ImGui::Text("Main Histogram Non-IID results:");
+        if (oe->heuristicData.entropyResults.min_entropy.has_value()) {
+            const auto& res = oe->heuristicData.entropyResults;
+
+            if (res.H_original.has_value())
+                ImGui::BulletText("H_original: %.6f bits", res.H_original.value());
+            ImGui::SameLine();
+
+            if (res.H_bitstring.has_value())
+                ImGui::BulletText("H_bitstring: %.6f bits", res.H_bitstring.value());
+            ImGui::SameLine();
+
+            ImGui::BulletText("Min Entropy: %.6f bits", res.min_entropy.value());
+        } else if (oe->heuristicData.testsRunning) {
+            float t = std::chrono::duration<float>(std::chrono::steady_clock::now() - oe->heuristicData.startTime).count();
+            ImGui::Text("Running tests %.1fs %c", t, "|/-\\"[static_cast<int>(t*4) % 4]);
+        } else {
+            ImGui::BulletText("Non-IID results not available");
+        }
+
         ImGui::PopFont();
     }
     ImGui::EndChild();
@@ -269,7 +389,7 @@ void HeuristicManager::Render() {
                 // Left column (metadata + buttons)
                 ImGui::BeginChild(("SubMeta_" + std::to_string(i)).c_str(), ImVec2(sidebarWidth - 10.0f, -1), false);
                 {
-                    std::string regionTitle = "Region " + std::to_string(i + 1);
+                    std::string regionTitle = "Region " + std::to_string(region.regionIndex);
 
                     // --- Title on the left ---
                     ImGui::PushFont(Config::fontH3_Bold);
@@ -298,7 +418,31 @@ void HeuristicManager::Render() {
                     {
                         
                         if (ImGui::Button(std::string(u8"\uf83e").c_str())) {
-                            // TODO: run test
+                            auto oe = GetSelectedOE();
+                            if (!oe) return;
+
+                            if (!CreateSubHistogramFile(oe->heuristicData.heuristicFilePath, region, region.subFilePath)) {
+                                ImGui::OpenPopup("Error");
+                                return;
+                            }
+
+                            // Now run the usual conversion & statistical test
+                            if (!ConvertDecimalFileToEntropyData(region.subFilePath,
+                                                                region.entropyData,
+                                                                region.convertedFilePath)) {
+                                ImGui::OpenPopup("Error");
+                                return;
+                            }
+
+                            region.testsRunning = true;
+                            region.startTime = std::chrono::steady_clock::now();
+
+                            if (m_onCommand) {
+                                m_onCommand(RunStatisticalTestCommand{
+                                    region.convertedFilePath,
+                                    std::shared_ptr<lib90b::NonIidResult>(&region.entropyResults, [](lib90b::NonIidResult*){}) 
+                                });
+                            }
                         }
                     }
                     ImGui::PopStyleColor(4);
@@ -331,6 +475,22 @@ void HeuristicManager::Render() {
 
                     ImGui::BulletText("Bins: %d", subBinCount);
                     ImGui::BulletText("Bin Width: %.2f", hist.binWidth);
+
+                    ImGui::Separator();
+                    ImGui::Text("%s Non-IID results:", regionTitle.c_str());
+                    if (region.entropyResults.min_entropy.has_value()) {
+                        const auto& res = region.entropyResults;
+                        if (res.H_original.has_value())
+                            ImGui::BulletText("H_original: %.6f bits", res.H_original.value());
+                        if (res.H_bitstring.has_value())
+                            ImGui::BulletText("H_bitstring: %.6f bits", res.H_bitstring.value());
+                        ImGui::BulletText("Min Entropy: %.6f bits", res.min_entropy.value());
+                    } else if (region.testsRunning) {
+                        float t = std::chrono::duration<float>(std::chrono::steady_clock::now() - region.startTime).count();
+                        ImGui::Text("Running %.1fs %c", t, "|/-\\"[static_cast<int>(t*4) % 4]);
+                    } else {
+                        ImGui::BulletText("Non-IID results not available");
+                    }
 
                     ImGui::PopFont();
                 }

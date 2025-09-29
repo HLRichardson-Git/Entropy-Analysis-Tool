@@ -232,6 +232,9 @@ Project DataManager::LoadProject(const std::string& filename) {
                                     region.color = ImVec4(0.84f, 0.28f, 0.28f, 0.25f); // default red
                                 }
 
+                                // Set the regionIndex
+                                region.regionIndex = static_cast<int>(oe.heuristicData.regions.size()) + 1;
+
                                 // Add to regions vector
                                 oe.heuristicData.regions.push_back(std::move(region));
                             }

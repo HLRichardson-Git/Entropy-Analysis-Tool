@@ -60,6 +60,18 @@ void Application::Update() {
                         uiManager.PushNotification(msg, duration, color);
                     }
                 );
+            } else if constexpr (std::is_same_v<T, RunStatisticalTestCommand>) {
+                GetThreadPool().Enqueue([this, cmd = command] {
+                    try {
+                        auto results = lib90b::nonIidTestSuite(cmd.inputFile);
+                        if (cmd.output) {
+                            *cmd.output = results;
+                        }
+                        uiManager.PushNotification("Statistical tests completed.", 3.0f, ImVec4(0,1,0,1));
+                    } catch (const std::exception& e) {
+                        uiManager.PushNotification(std::string("Test failed: ") + e.what(), 5.0f, ImVec4(1,0,0,1));
+                    }
+                });
             }
         }, cmd);
     }

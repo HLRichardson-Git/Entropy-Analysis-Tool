@@ -4,6 +4,9 @@
 #include <string>
 #include <variant>
 #include <queue>
+#include <filesystem>
+
+#include <lib90b/non_iid.h>
 
 struct OpenProjectCommand {
     std::string filePath;
@@ -31,13 +34,23 @@ struct ProcessHistogramCommand {
     int oeIndex;
 };
 
+struct RunStatisticalTestsCommand {
+    int oeIndex;
+};
+
+struct RunStatisticalTestCommand {
+    std::filesystem::path inputFile;   
+    std::shared_ptr<lib90b::NonIidResult> output;
+};
+
 using AppCommand = std::variant<
     OpenProjectCommand,
     SaveProjectCommand,
     NewProjectCommand,
     AddOECommand,
     DeleteOECommand,
-    ProcessHistogramCommand
+    ProcessHistogramCommand,
+    RunStatisticalTestCommand
 >;
 
 class CommandQueue {
