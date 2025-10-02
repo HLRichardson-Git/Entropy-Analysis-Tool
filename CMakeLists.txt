@@ -11,7 +11,7 @@ set(Lib90B_BUILD_TESTS OFF CACHE BOOL "Build unit tests" FORCE)
 
 FetchContent_Declare(
     lib90b
-    URL https://github.com/HLRichardson-Git/Lib90B/archive/refs/tags/v0.1.zip
+    URL https://github.com/HLRichardson-Git/Lib90B/archive/refs/tags/v0.2.zip
 )
 
 FetchContent_MakeAvailable(lib90b)

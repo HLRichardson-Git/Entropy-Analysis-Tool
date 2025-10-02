@@ -62,35 +62,35 @@ void Application::Update() {
                 );
             } else if constexpr (std::is_same_v<T, RunStatisticalTestCommand>) {
                 GetThreadPool().Enqueue([this, cmd = command] {
-                try {
-                    lib90b::EntropyInputData entropyData;
-                    std::string convertedFile;
+                    try {
+                        lib90b::EntropyInputData entropyData;
+                        std::string convertedFile;
 
-                    // Convert the decimal file first
-                    if (!dataManager.ConvertDecimalFile(
-                            cmd.inputFile,        // input decimal file
-                            entropyData,          // entropyData to fill
-                            convertedFile,        // resulting binary file path
-                            cmd.minValue,         // optional min
-                            cmd.maxValue,         // optional max
-                            cmd.regionIndex))     // optional region index
-                    {
-                        uiManager.PushNotification("Failed to convert file for statistical tests.", 5.0f, ImVec4(1,0,0,1));
-                        return;
+                        // Convert the decimal file first
+                        if (!dataManager.ConvertDecimalFile(
+                                cmd.inputFile,        // input decimal file
+                                entropyData,          // entropyData to fill
+                                convertedFile,        // resulting binary file path
+                                cmd.minValue,         // optional min
+                                cmd.maxValue,         // optional max
+                                cmd.regionIndex))     // optional region index
+                        {
+                            uiManager.PushNotification("Failed to convert file for statistical tests.", 5.0f, ImVec4(1,0,0,1));
+                            return;
+                        }
+
+                        // Now run the non-IID test on the converted binary file
+                        auto results = lib90b::nonIidTestSuite(convertedFile);
+
+                        if (cmd.output) {
+                            *cmd.output = results;
+                        }
+
+                        uiManager.PushNotification("Statistical tests completed.", 3.0f, ImVec4(0,1,0,1));
+                    } catch (const std::exception& e) {
+                        uiManager.PushNotification(std::string("Test failed: ") + e.what(), 5.0f, ImVec4(1,0,0,1));
                     }
-
-                    // Now run the non-IID test on the converted binary file
-                    auto results = lib90b::nonIidTestSuite(convertedFile);
-
-                    if (cmd.output) {
-                        *cmd.output = results;
-                    }
-
-                    uiManager.PushNotification("Statistical tests completed.", 3.0f, ImVec4(0,1,0,1));
-                } catch (const std::exception& e) {
-                    uiManager.PushNotification(std::string("Test failed: ") + e.what(), 5.0f, ImVec4(1,0,0,1));
-                }
-            });
+                });
             }
         }, cmd);
     }
