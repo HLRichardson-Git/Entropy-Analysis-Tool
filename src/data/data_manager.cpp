@@ -219,6 +219,16 @@ Project DataManager::LoadProject(const std::string& filename) {
                                     res.min_entropy = statsJson["min_entropy"].get<double>();
                                 }
                             }
+
+                            // Load first passing decimation result if present
+                            if (mainHistJson.contains("firstPassingDecimationResult") &&
+                                mainHistJson["firstPassingDecimationResult"].is_string()) 
+                            {
+                                oe.heuristicData.firstPassingDecimationResult =
+                                    mainHistJson["firstPassingDecimationResult"].get<std::string>();
+                            } else {
+                                oe.heuristicData.firstPassingDecimationResult.clear();
+                            }
                         }
 
                         // Load subHistograms if present
@@ -583,6 +593,11 @@ void DataManager::UpdateOEsForProject(Project& project) {
                 resultsJson["min_entropy"] = res.min_entropy.value();
 
                 mainHistogramJson["nonIidResults"] = resultsJson;
+            }
+
+            // Save first passing decimation result
+            if (!oe.heuristicData.firstPassingDecimationResult.empty()) {
+                mainHistogramJson["firstPassingDecimationResult"] = oe.heuristicData.firstPassingDecimationResult;
             }
 
             // --- Save subHistograms ---

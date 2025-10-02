@@ -173,9 +173,7 @@ void HeuristicManager::Render() {
                 
                 // Check if the path is not empty and the file exists
                 if (!convertedFilePath.empty() && std::filesystem::exists(convertedFilePath)) {
-                    if (!findFirstPassingDecimation(convertedFilePath)) {
-                        std::cout << "IID test failed for decimation" << std::endl;
-                    }
+                    oe->heuristicData.firstPassingDecimationResult = findFirstPassingDecimation(convertedFilePath);
                 } else {
                     std::cout << "Invalid file path or file does not exist: " << convertedFilePath << std::endl;
                 }
@@ -262,16 +260,6 @@ void HeuristicManager::Render() {
         // Metadata Area
         ImGui::PushFont(Config::normal);
         ImGui::Separator();
-        ImGui::Text("Main Histogram Metadata:");
-        ImGui::BulletText("Bins: %d", oe->heuristicData.mainHistogram.binCount);
-        ImGui::SameLine();
-        ImGui::BulletText("Min: %d", oe->heuristicData.mainHistogram.minValue);
-        ImGui::SameLine();
-        ImGui::BulletText("Max: %d", oe->heuristicData.mainHistogram.maxValue);
-        ImGui::SameLine();
-        ImGui::BulletText("Bin Width: %.2f", oe->heuristicData.mainHistogram.binWidth);
-
-        ImGui::Separator();
 
         // Render non-iid test results if available
         ImGui::Text("Main Histogram Non-IID results:");
@@ -292,6 +280,15 @@ void HeuristicManager::Render() {
             ImGui::Text("Running tests %.1fs %c", t, "|/-\\"[static_cast<int>(t*4) % 4]);
         } else {
             ImGui::BulletText("Non-IID results not available");
+        }
+
+        ImGui::Separator();
+
+        ImGui::Text("First Passing Decimation Result:");
+        if (oe->heuristicData.firstPassingDecimationResult != "") {
+            ImGui::BulletText("Result: %s", oe->heuristicData.firstPassingDecimationResult.c_str());
+        } else {
+            ImGui::BulletText("Result: Not yet ran.");
         }
 
         ImGui::PopFont();
@@ -530,6 +527,19 @@ void HeuristicManager::RenderMainHistogramConfigPopup() {
                 m_onCommand(ProcessHistogramCommand{ m_uiState->selectedOEIndex });
             }
         }
+
+        ImGui::PushFont(Config::normal);
+        ImGui::Separator();
+        ImGui::Text("Main Histogram Metadata:");
+        ImGui::BulletText("Bins: %d", oe->heuristicData.mainHistogram.binCount);
+        ImGui::SameLine();
+        ImGui::BulletText("Min: %d", oe->heuristicData.mainHistogram.minValue);
+        ImGui::SameLine();
+        ImGui::BulletText("Max: %d", oe->heuristicData.mainHistogram.maxValue);
+        ImGui::SameLine();
+        ImGui::BulletText("Bin Width: %.2f", oe->heuristicData.mainHistogram.binWidth);
+        ImGui::PopFont();
+        ImGui::Separator();
 
         ImVec2 windowSize = ImGui::GetWindowSize();
         ImVec2 buttonSize = ImVec2(120, 0); // width, auto height

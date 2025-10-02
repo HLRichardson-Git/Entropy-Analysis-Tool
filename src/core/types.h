@@ -36,6 +36,7 @@ struct HistogramRegion {
 struct HeuristicData {
     std::string heuristicFilePath;
     std::string convertedFilePath;
+    std::string firstPassingDecimationResult = "";
 
     PrecomputedHistogram mainHistogram;
     std::vector<HistogramRegion> regions;

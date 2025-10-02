@@ -27,3 +27,8 @@ std::optional<std::string> FileSelector(
 );
 
 std::optional<fs::path> CopyFileToDirectory(const fs::path& sourcePath, const fs::path& destDir);
+
+// WSL helpers
+std::string toWslCommandPath(const std::filesystem::path& winPath);
+std::string executeCommand(const std::string& command);
+void writeStringToFile(const std::string& content, const std::filesystem::path& filePath);

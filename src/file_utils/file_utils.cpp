@@ -69,3 +69,54 @@ std::optional<fs::path> CopyFileToDirectory(const fs::path& sourcePath, const fs
         return std::nullopt;
     }
 }
+
+std::string toWslCommandPath(const std::filesystem::path& winPath) {
+    std::string path = winPath.string();
+    std::replace(path.begin(), path.end(), '\\', '/');
+
+    // handle drive letter
+    if (path.size() > 2 && path[1] == ':') {
+        char driveLetter = std::tolower(path[0]);
+        path = "/mnt/" + std::string(1, driveLetter) + path.substr(2);
+    }
+
+    // wrap in quotes for shell
+    return "\"" + path + "\"";
+}
+
+std::string executeCommand(const std::string& command) {
+    std::array<char, 128> buffer;
+    std::string result;
+    
+    std::unique_ptr<FILE, decltype(&_pclose)> pipe(_popen(command.c_str(), "r"), _pclose);
+    
+    if (!pipe) {
+        throw std::runtime_error("popen() failed!");
+    }
+    
+    while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+        result += buffer.data();
+    }
+    
+    return result;
+}
+
+void writeStringToFile(const std::string& content, const std::filesystem::path& filePath) {
+    // Ensure the parent directory exists
+    if (filePath.has_parent_path()) {
+        std::filesystem::create_directories(filePath.parent_path());
+    }
+
+    std::ofstream outFile(filePath, std::ios::out | std::ios::trunc);
+    if (!outFile.is_open()) {
+        throw std::runtime_error("Failed to open file for writing: " + filePath.string());
+    }
+
+    outFile << content;
+
+    if (!outFile.good()) {
+        throw std::runtime_error("Failed to write data to file: " + filePath.string());
+    }
+
+    outFile.close();
+}
