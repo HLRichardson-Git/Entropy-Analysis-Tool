@@ -91,7 +91,7 @@ void UIManager::RenderSidebar() {
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::GREEN_BUTTON.hovered);
     ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREEN_BUTTON.active);
     {
-        std::string newProjectButton = std::string(u8"\uf067") + "  New Project";
+        std::string newProjectButton = std::string(reinterpret_cast<const char*>(u8"\uf067")) + "  New Project";
         if (ImGui::Button(newProjectButton.c_str(), buttonSize)) {
             uiState.newProjectPopupOpen = true;
         }
@@ -102,7 +102,7 @@ void UIManager::RenderSidebar() {
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::ORANGE_BUTTON.hovered);
     ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::ORANGE_BUTTON.active);
     {
-        std::string loadProjectButton = std::string(u8"\uf07c") + "  Load Project";
+        std::string loadProjectButton = std::string(reinterpret_cast<const char*>(u8"\uf07c")) + "  Load Project";
         if (ImGui::Button(loadProjectButton.c_str(), buttonSize)) {
             uiState.loadProjectPopupOpen = true;
         }
@@ -113,7 +113,7 @@ void UIManager::RenderSidebar() {
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::RED_BUTTON.hovered);
     ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::RED_BUTTON.active);
     {
-        std::string saveProjectButton = std::string(u8"\uf0c7") + "  Save Project";
+        std::string saveProjectButton = std::string(reinterpret_cast<const char*>(u8"\uf0c7")) + "  Save Project";
         if (ImGui::Button(saveProjectButton.c_str(), buttonSize)) {
             commandQueue.Push(AppCommand(SaveProjectCommand{}));
             PushNotification("Project saved!", 3.0f, ImVec4(0.0f, 1.0f, 0.0f, 1.0f));
@@ -146,7 +146,7 @@ void UIManager::RenderSidebar() {
 
         ImGui::SetCursorPosX(iconLeftPadding);
         ImGui::PushFont(Config::fontH3);
-        ImGui::Text(u8"\uf1c0"); // Database icon
+        ImGui::Text(reinterpret_cast<const char*>(u8"\uf1c0")); // Database icon
         ImGui::PopFont();
 
         ImGui::NextColumn();
@@ -190,7 +190,7 @@ void UIManager::RenderSidebar() {
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::PURPLE_BUTTON.hovered);
     ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::PURPLE_BUTTON.active);
     {
-        std::string statisticalButton = std::string(u8"\uf1ec") + "  Statistical";
+        std::string statisticalButton = std::string(reinterpret_cast<const char*>(u8"\uf1ec")) + "  Statistical";
         if (ImGui::Button(statisticalButton.c_str(), projectButtonSize)) {
             uiState.activeTab = Tabs::StatisticalAssessment;
         }
@@ -207,7 +207,7 @@ void UIManager::RenderSidebar() {
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::PURPLE_BUTTON.hovered);
     ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::PURPLE_BUTTON.active);
     {
-        std::string heursiticButton = std::string(u8"\uf1fe") + "  Heuristic";
+        std::string heursiticButton = std::string(reinterpret_cast<const char*>(u8"\uf1fe")) + "  Heuristic";
         if (ImGui::Button(heursiticButton.c_str(), projectButtonSize)) {
             uiState.activeTab = Tabs::HeuristicAssessment;
         }
@@ -244,7 +244,7 @@ void UIManager::RenderSidebar() {
             ImVec2 prevAlign = style.ButtonTextAlign;
 
             style.ButtonTextAlign = ImVec2(0.0f, 0.5f); // Set text to left aligned
-            std::string oeNameButton = std::string(u8"\uf2db") + " " + oe.oeName;
+            std::string oeNameButton = std::string(reinterpret_cast<const char*>(u8"\uf2db")) + " " + oe.oeName;
             if (ImGui::Button(oeNameButton.c_str(), ImVec2(oeButtonWidth, oeButtonHeight))) {
                 uiState.selectedOEIndex = (int)i;
             }
@@ -271,7 +271,7 @@ void UIManager::RenderSidebar() {
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::GREEN_BUTTON.hovered);
     ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREEN_BUTTON.active);
     {
-        std::string addOEButton = std::string(u8"\uf067"); // '+' icon
+        std::string addOEButton = std::string(reinterpret_cast<const char*>(u8"\uf067")); // '+' icon
         if (ImGui::Button(addOEButton.c_str(), addOEButtonSize)) {
             uiState.addOEPopupOpen = true;
         }
@@ -286,7 +286,7 @@ void UIManager::RenderSidebar() {
     ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_DARK_CHARCOAL);
     {
         ImGui::BeginDisabled(uiState.selectedOEIndex < 0);
-        std::string cogButton = std::string(u8"\uf013"); // cog icon
+        std::string cogButton = std::string(reinterpret_cast<const char*>(u8"\uf013")); // cog icon
         if (ImGui::Button(cogButton.c_str(), cogButtonSize)) {
             if (uiState.selectedOEIndex >= 0) {
                 uiState.editOEPopupOpen = true;
@@ -637,7 +637,7 @@ EditOEFormResult UIManager::RenderEditOEPopup() {
         ImGui::PushStyleColor(ImGuiCol_Button,        Config::GREEN_BUTTON.normal);
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::GREEN_BUTTON.hovered);
         ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREEN_BUTTON.active);
-        if (ImGui::Button((std::string(u8"\uf0c7 ") + "Save").c_str(), ImVec2(buttonWidth, 0))) {
+        if (ImGui::Button((std::string(reinterpret_cast<const char*>(u8"\uf0c7")) + " Save").c_str(), ImVec2(buttonWidth, 0))) {
             result.submitted = true;
             result.newName = std::string(oeNameBuffer);
             ImGui::CloseCurrentPopup();
@@ -653,7 +653,7 @@ EditOEFormResult UIManager::RenderEditOEPopup() {
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::GREY_BUTTON.hovered);
         ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREY_BUTTON.active);
         ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_DARK_CHARCOAL);
-        if (ImGui::Button((std::string(u8"\uf00d ") + "Cancel").c_str(), ImVec2(buttonWidth, 0))) {
+        if (ImGui::Button((std::string(reinterpret_cast<const char*>(u8"\uf00d")) + " Cancel").c_str(), ImVec2(buttonWidth, 0))) {
             result.submitted = false;
             ImGui::CloseCurrentPopup();
             uiState.editOEPopupOpen = false;
@@ -668,7 +668,7 @@ EditOEFormResult UIManager::RenderEditOEPopup() {
         ImGui::PushStyleColor(ImGuiCol_Button,        Config::RED_BUTTON.normal);
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::RED_BUTTON.hovered);
         ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::RED_BUTTON.active);
-        if (ImGui::Button((std::string(u8"\uf1f8 ") + "Delete").c_str(), ImVec2(buttonWidth, 0))) {
+        if (ImGui::Button((std::string(reinterpret_cast<const char*>(u8"\uf1f8")) + " Delete").c_str(), ImVec2(buttonWidth, 0))) {
             confirmDeleteOEPopupOpen = true;
             ImGui::OpenPopup("Confirm Delete OE");
         }
@@ -679,7 +679,7 @@ EditOEFormResult UIManager::RenderEditOEPopup() {
             ImGui::SetNextWindowSize(ImVec2(420, 0), ImGuiCond_Appearing);
             if (ImGui::BeginPopupModal("Confirm Delete OE", nullptr, ImGuiWindowFlags_NoResize)) {
                 ImGui::PushFont(Config::fontH3_Bold);
-                ImGui::TextColored(ImVec4(0.8f, 0.1f, 0.1f, 1.0f), (std::string(u8"\uf1f8 ") + "Delete OE?").c_str());
+                ImGui::TextColored(ImVec4(0.8f, 0.1f, 0.1f, 1.0f), (std::string(reinterpret_cast<const char*>(u8"\uf1f8")) + " Delete OE?").c_str());
                 ImGui::PopFont();
 
                 ImGui::Spacing();

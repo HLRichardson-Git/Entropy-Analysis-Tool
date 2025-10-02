@@ -177,6 +177,10 @@ Project DataManager::LoadProject(const std::string& filename) {
                                 oe.heuristicData.heuristicFilePath = mainHistJson["heuristicFilePath"].get<std::string>();
                             }
 
+                            if (mainHistJson.contains("convertedFilePath") && mainHistJson["convertedFilePath"].is_string()) {
+                                oe.heuristicData.convertedFilePath = mainHistJson["convertedFilePath"].get<std::string>();
+                            }
+
                             // Load precomputed histogram if available
                             if (mainHistJson.contains("computedBins") && mainHistJson["computedBins"].is_array()) {
                                 auto& h = oe.heuristicData.mainHistogram;
@@ -556,6 +560,10 @@ void DataManager::UpdateOEsForProject(Project& project) {
         if (!oe.heuristicData.heuristicFilePath.empty()) {
             nlohmann::json mainHistogramJson;
             mainHistogramJson["heuristicFilePath"] = oe.heuristicData.heuristicFilePath;
+
+            if (!oe.heuristicData.convertedFilePath.empty()) {
+                mainHistogramJson["convertedFilePath"] = oe.heuristicData.convertedFilePath;
+            }
 
             // Save histogram stats if available
             if (oe.heuristicData.mainHistogram.binCounts.size() > 0) {

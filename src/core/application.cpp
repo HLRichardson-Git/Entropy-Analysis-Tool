@@ -52,6 +52,27 @@ void Application::Update() {
                 dataManager.DeleteOE(currentProject, command.oeIndex, config);
                 uiManager.OnProjectChanged(currentProject);
             } else if constexpr (std::is_same_v<T, ProcessHistogramCommand>) {
+                auto& oe = currentProject.operationalEnvironments[command.oeIndex];
+
+                // 1. Convert decimal file first
+                std::string convertedFile;
+                lib90b::EntropyInputData entropyData;
+                if (!oe.heuristicData.heuristicFilePath.empty()) {
+                    if (!dataManager.ConvertDecimalFile(
+                            oe.heuristicData.heuristicFilePath, // raw decimal file
+                            entropyData,
+                            convertedFile)) 
+                    {
+                        uiManager.PushNotification("Failed to convert file for statistical tests.", 5.0f, ImVec4(1,0,0,1));
+                        return;
+                    }
+
+                    oe.heuristicData.convertedFilePath = convertedFile;
+                } else {
+                    uiManager.PushNotification("No raw file uploaded to convert.", 5.0f, ImVec4(1,0,0,1));
+                    return;
+                }
+                
                 dataManager.processHistogramForProject(
                     currentProject,
                     command.oeIndex,

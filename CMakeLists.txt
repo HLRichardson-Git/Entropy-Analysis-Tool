@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(EntropyAnalysisTool LANGUAGES C CXX)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 23)
 
 
 include(FetchContent)
@@ -11,7 +11,7 @@ set(Lib90B_BUILD_TESTS OFF CACHE BOOL "Build unit tests" FORCE)
 
 FetchContent_Declare(
     lib90b
-    URL https://github.com/HLRichardson-Git/Lib90B/archive/refs/tags/v0.2.zip
+    URL https://github.com/HLRichardson-Git/Lib90B/archive/refs/tags/v0.2.1.zip
 )
 
 FetchContent_MakeAvailable(lib90b)
@@ -34,6 +34,7 @@ set (SOURCES
     src/core/app_command/app_command.cpp
     src/data/data_manager.cpp
     src/data/histogram/histogram.cpp
+    src/data/find_first_passing_decimation/find_first_passing_decimation.cpp
     src/ui/ui_manager.cpp
     src/ui/heuristic_assessment/heuristic_manager.cpp
     src/file_utils/file_utils.cpp

@@ -1,5 +1,6 @@
 
 #include "heuristic_manager.h"
+#include "../../data/find_first_passing_decimation/find_first_passing_decimation.h"
 
 #include <algorithm>
 
@@ -29,7 +30,7 @@ void HeuristicManager::Render() {
     ImGui::BeginChild("SelectMainHistogramRegions", ImVec2(sidebarWidth, 460), true);
     {
         ImGui::PushFont(Config::fontH3_Bold);
-        std::string selectMainHistogramRegionsTitle = std::string(u8"\uf0fe") + "  Selected Regions";
+        std::string selectMainHistogramRegionsTitle = std::string(reinterpret_cast<const char*>(u8"\uf0fe")) + "  Selected Regions";
         ImGui::Text(selectMainHistogramRegionsTitle.c_str());
         ImGui::PopFont();
 
@@ -49,7 +50,7 @@ void HeuristicManager::Render() {
             }
 
             ImGui::SameLine();
-            std::string deleteButton = std::string(u8"\uf1f8");
+            std::string deleteButton = std::string(reinterpret_cast<const char*>(u8"\uf1f8"));
             if (ImGui::Button(deleteButton.c_str())) {
                 oe->heuristicData.regions.erase(oe->heuristicData.regions.begin() + i);
                 ImGui::PopID();
@@ -109,16 +110,17 @@ void HeuristicManager::Render() {
     {
         // Text on the left
         ImGui::PushFont(Config::fontH3_Bold);
-        std::string mainHeuristicTitle = std::string(u8"\uf1fe") + "  Main Histogram - " + oe->oeName;
+        std::string mainHeuristicTitle = std::string(reinterpret_cast<const char*>(u8"\uf1fe")) + "  Main Histogram - " + oe->oeName;
         ImGui::Text(mainHeuristicTitle.c_str());
 
         // Calculate position for right-aligned buttons
+        ImVec2 statisticalTestSize(200, 30);
+        ImVec2 findFirstDecimationSize(220, 30);
         ImVec2 cogSize(30, 30);
-        ImVec2 statisticalTestSize(200, 30); // wider button with text
         float spacing = 8.0f;
 
         // Total width for both buttons + spacing
-        float totalWidth = statisticalTestSize.x + spacing + cogSize.x;
+        float totalWidth = statisticalTestSize.x + spacing + findFirstDecimationSize.x + spacing + cogSize.x;
 
         // Align buttons as a group to the right
         float regionWidth = ImGui::GetContentRegionAvail().x;
@@ -135,7 +137,7 @@ void HeuristicManager::Render() {
         ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::MINT_BUTTON.active);
         ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_DARK_CHARCOAL);
         {
-            std::string runStatisticalTestButton = std::string(u8"\uf83e") + "  Run Statistical Tests";
+            std::string runStatisticalTestButton = std::string(reinterpret_cast<const char*>(u8"\uf83e")) + "  Run Statistical Tests";
             if (ImGui::Button(runStatisticalTestButton.c_str(), statisticalTestSize)) {
                 auto oe = GetSelectedOE();
                 if (!oe || oe->heuristicData.heuristicFilePath.empty()) return;
@@ -159,13 +161,37 @@ void HeuristicManager::Render() {
 
         ImGui::SameLine(0, spacing);
 
+        ImGui::SameLine(0, spacing);
+        ImGui::PushStyleColor(ImGuiCol_Button,        Config::WHITE_BUTTON.normal);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::WHITE_BUTTON.hovered);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::WHITE_BUTTON.active);
+        ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_DARK_CHARCOAL);
+        {
+            std::string extraButton = std::string(reinterpret_cast<const char*>(u8"\uf12d")) + "  Find Passing Decimation";
+            if (ImGui::Button(extraButton.c_str(), findFirstDecimationSize)) {
+                const std::filesystem::path convertedFilePath = oe->heuristicData.convertedFilePath;
+                
+                // Check if the path is not empty and the file exists
+                if (!convertedFilePath.empty() && std::filesystem::exists(convertedFilePath)) {
+                    if (!findFirstPassingDecimation(convertedFilePath)) {
+                        std::cout << "IID test failed for decimation" << std::endl;
+                    }
+                } else {
+                    std::cout << "Invalid file path or file does not exist: " << convertedFilePath << std::endl;
+                }
+            }
+        }
+        ImGui::PopStyleColor(4);
+
+        ImGui::SameLine(0, spacing);
+
         // Cog button
         ImGui::PushStyleColor(ImGuiCol_Button,        Config::WHITE_BUTTON.normal);
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::WHITE_BUTTON.hovered);
         ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::WHITE_BUTTON.active);
         ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_DARK_CHARCOAL);
         {
-            std::string cogButton = std::string(u8"\uf013");
+            std::string cogButton = std::string(reinterpret_cast<const char*>(u8"\uf013"));
             if (ImGui::Button(cogButton.c_str(), cogSize)) {
                 m_editHistogramPopupOpen = true;
             }
@@ -276,7 +302,7 @@ void HeuristicManager::Render() {
     ImGui::BeginChild("SubHistograms", ImVec2(fullWidth, 0), true);
     {
         ImGui::PushFont(Config::fontH3_Bold);
-        std::string subHistogramsTitle = std::string(u8"\uf1fe") + "  Sub Histograms";
+        std::string subHistogramsTitle = std::string(reinterpret_cast<const char*>(u8"\uf1fe")) + "  Sub Histograms";
         ImGui::Text(subHistogramsTitle.c_str());
         ImGui::PopFont();
         ImGui::Separator();
@@ -338,7 +364,7 @@ void HeuristicManager::Render() {
                     ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_DARK_CHARCOAL);
                     {
                         
-                        if (ImGui::Button(std::string(u8"\uf83e").c_str())) {
+                        if (ImGui::Button(std::string(reinterpret_cast<const char*>(u8"\uf83e")).c_str())) {
                             auto oe = GetSelectedOE();
                             if (!oe) return;
 
@@ -367,7 +393,7 @@ void HeuristicManager::Render() {
                     ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::WHITE_BUTTON.active);
                     ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_DARK_CHARCOAL);
                     {
-                        if (ImGui::Button((std::string(u8"\uf013").c_str()))) {
+                        if (ImGui::Button((std::string(reinterpret_cast<const char*>(u8"\uf013")).c_str()))) {
                             // TODO: config
                         }
                     }
