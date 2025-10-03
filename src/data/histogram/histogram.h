@@ -1,8 +1,6 @@
 
 #pragma once
 
-#include "../../core/thread_pool/thread_pool.h"
-
 #include <array>
 #include <string>
 #include <fstream>
@@ -14,15 +12,10 @@
 #include <filesystem>
 #include <iostream>
 
+#include "../../core/thread_pool/thread_pool.h"
+#include "../../core/types.h"
+
 namespace fs = std::filesystem;
 
-struct PrecomputedHistogram {
-    static constexpr int binCount = 1500;
-    unsigned int minValue = 0;
-    unsigned int maxValue = 0;
-    double binWidth = 0.0;
-    std::array<int, binCount> binCounts{};
-};
-
 // Compute histogram from a file
-PrecomputedHistogram computeHistogramFromFile(const fs::path& filePath);
+MainHistogram computeHistogramFromFile(const fs::path& filePath);

@@ -15,17 +15,22 @@ bool HeuristicManager::Initialize(DataManager* dataManager, Config::AppConfig* c
     return true;
 }
 
+// -----------------------------------------------------------------------------
+// Render - full refactor using MainHistogram::subHists (SubHistogram)
+// -----------------------------------------------------------------------------
 void HeuristicManager::Render() {
     if (!m_currentProject) return;
 
     float fullWidth = ImGui::GetContentRegionAvail().x;
-
-    float sidebarWidth = 250.0f; // Hardcoded for simplicity
+    float sidebarWidth = 250.0f;
     float mainWidth = fullWidth - sidebarWidth;
 
     auto oe = GetSelectedOE();
+    if (!oe) return;
 
-    // Sidebar
+    // ---------------------------------------------------------------------
+    // Sidebar: Selected sub-histograms (was regions)
+    // ---------------------------------------------------------------------
     ImGui::PushStyleColor(ImGuiCol_ChildBg, Config::LIGHT_BACKGROUND_COLOR);
     ImGui::BeginChild("SelectMainHistogramRegions", ImVec2(sidebarWidth, 460), true);
     {
@@ -36,29 +41,31 @@ void HeuristicManager::Render() {
 
         ImGui::PushFont(Config::normal);
 
-        for (size_t i = 0; i < oe->heuristicData.regions.size(); ++i) {
-            auto& region = oe->heuristicData.regions[i];
+        auto& mainHist = oe->heuristicData.mainHistogram;
+        auto& subHists = mainHist.subHists;
 
+        for (size_t i = 0; i < subHists.size(); ++i) {
+            auto& sub = subHists[i];
             ImGui::PushID(static_cast<int>(i));
 
             // Range controls
             ImGui::SetNextItemWidth(140.0f);
-            int inputs[2] = { static_cast<int>(region.rect.X.Min), static_cast<int>(region.rect.X.Max) };
+            int inputs[2] = { static_cast<int>(sub.rect.X.Min), static_cast<int>(sub.rect.X.Max) };
             if (ImGui::InputInt2("##Range", inputs)) {
-                region.rect.X.Min = inputs[0];
-                region.rect.X.Max = inputs[1];
+                sub.rect.X.Min = inputs[0];
+                sub.rect.X.Max = inputs[1];
             }
 
             ImGui::SameLine();
             std::string deleteButton = std::string(reinterpret_cast<const char*>(u8"\uf1f8"));
             if (ImGui::Button(deleteButton.c_str())) {
-                oe->heuristicData.regions.erase(oe->heuristicData.regions.begin() + i);
+                subHists.erase(subHists.begin() + i);
                 ImGui::PopID();
-                break; // stop processing further to avoid invalid memory access
+                break; // avoid invalid access after erase
             }
 
             ImGui::SameLine();
-            ImGui::ColorEdit4("##Color", (float*)&region.color,
+            ImGui::ColorEdit4("##Color", (float*)&sub.color,
                 ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaBar);
 
             ImGui::PopID();
@@ -68,34 +75,32 @@ void HeuristicManager::Render() {
 
         // Disable "Add Selection" if histogram has no data
         bool hasHistogram = std::any_of(
-            oe->heuristicData.mainHistogram.binCounts.begin(),
-            oe->heuristicData.mainHistogram.binCounts.end(),
+            mainHist.binCounts.begin(), mainHist.binCounts.end(),
             [](int c){ return c > 0; }
         );
 
         ImGui::BeginDisabled(!hasHistogram);
         if (ImGui::Button("Add Selection")) {
-            HistogramRegion region;
-            unsigned int minValue = oe->heuristicData.mainHistogram.minValue;
-            unsigned int maxValue = oe->heuristicData.mainHistogram.maxValue;
-            region.rect = ImPlotRect(minValue, maxValue, 0, 100);
+            SubHistogram sub;
+            unsigned int minValue = mainHist.minValue;
+            unsigned int maxValue = mainHist.maxValue;
+            sub.rect = ImPlotRect(minValue, maxValue, 0, 100);
 
             static const std::vector<ImVec4> defaultColors = {
-                ImVec4(0.840f, 0.283f, 0.283f, 0.25f), // Red
-                ImVec4(0.6f, 0.95f, 0.6f, 0.25f),      // Green
-                ImVec4(0.95f, 0.95f, 0.6f, 0.25f),     // Yellow
-                ImVec4(0.6f, 0.6f, 0.95f, 0.25f),      // Blue
-                ImVec4(0.95f, 0.6f, 0.95f, 0.25f),     // Magenta
-                ImVec4(0.6f, 0.95f, 0.95f, 0.25f),     // Cyan
-                ImVec4(0.95f, 0.683f, 0.221f, 0.25f),  // Orange
+                ImVec4(0.840f, 0.283f, 0.283f, 0.25f),
+                ImVec4(0.6f, 0.95f, 0.6f, 0.25f),
+                ImVec4(0.95f, 0.95f, 0.6f, 0.25f),
+                ImVec4(0.6f, 0.6f, 0.95f, 0.25f),
+                ImVec4(0.95f, 0.6f, 0.95f, 0.25f),
+                ImVec4(0.6f, 0.95f, 0.95f, 0.25f),
+                ImVec4(0.95f, 0.683f, 0.221f, 0.25f),
             };
             static size_t nextColorIndex = 0;
-            region.color = defaultColors[nextColorIndex % defaultColors.size()];
+            sub.color = defaultColors[nextColorIndex % defaultColors.size()];
             nextColorIndex++;
 
-            region.regionIndex = static_cast<int>(oe->heuristicData.regions.size()) + 1;
-
-            oe->heuristicData.regions.push_back(std::move(region));
+            sub.regionIndex = static_cast<int>(subHists.size()) + 1;
+            mainHist.subHists.push_back(std::move(sub));
         }
         ImGui::EndDisabled();
 
@@ -105,24 +110,21 @@ void HeuristicManager::Render() {
 
     ImGui::SameLine();
 
-    // Main content
+    // ---------------------------------------------------------------------
+    // Main histogram area + top-right buttons
+    // ---------------------------------------------------------------------
     ImGui::BeginChild("MainHistogram", ImVec2(mainWidth - 10.0f, 460), true);
     {
-        // Text on the left
         ImGui::PushFont(Config::fontH3_Bold);
         std::string mainHeuristicTitle = std::string(reinterpret_cast<const char*>(u8"\uf1fe")) + "  Main Histogram - " + oe->oeName;
         ImGui::Text(mainHeuristicTitle.c_str());
 
-        // Calculate position for right-aligned buttons
+        // Buttons group on right
         ImVec2 statisticalTestSize(200, 30);
         ImVec2 findFirstDecimationSize(220, 30);
         ImVec2 cogSize(30, 30);
         float spacing = 8.0f;
-
-        // Total width for both buttons + spacing
         float totalWidth = statisticalTestSize.x + spacing + findFirstDecimationSize.x + spacing + cogSize.x;
-
-        // Align buttons as a group to the right
         float regionWidth = ImGui::GetContentRegionAvail().x;
         float startX = regionWidth - totalWidth + 5.0f;
 
@@ -131,7 +133,7 @@ void HeuristicManager::Render() {
 
         ImGui::PushFont(Config::fontH3);
 
-        // Run Statistical Tests button
+        // Run Statistical Tests (main)
         ImGui::PushStyleColor(ImGuiCol_Button,        Config::MINT_BUTTON.normal);
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::MINT_BUTTON.hovered);
         ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::MINT_BUTTON.active);
@@ -139,20 +141,18 @@ void HeuristicManager::Render() {
         {
             std::string runStatisticalTestButton = std::string(reinterpret_cast<const char*>(u8"\uf83e")) + "  Run Statistical Tests";
             if (ImGui::Button(runStatisticalTestButton.c_str(), statisticalTestSize)) {
-                auto oe = GetSelectedOE();
-                if (!oe || oe->heuristicData.heuristicFilePath.empty()) return;
+                if (oe->heuristicData.mainHistogram.heuristicFilePath.empty()) return;
 
-                oe->heuristicData.testsRunning = true;
-                oe->heuristicData.startTime = std::chrono::steady_clock::now();
+                oe->heuristicData.mainHistogram.testsRunning = true;
+                oe->heuristicData.mainHistogram.startTime = std::chrono::steady_clock::now();
 
                 if (m_onCommand) {
-                    // regionIndex = 0 for main histogram
                     m_onCommand(RunStatisticalTestCommand{
-                        oe->heuristicData.heuristicFilePath,  // decimal input file
-                        std::shared_ptr<lib90b::NonIidResult>(&oe->heuristicData.entropyResults, [](lib90b::NonIidResult*){}),
-                        std::nullopt,  // min value
-                        std::nullopt,  // max value
-                        0              // region index
+                        oe->heuristicData.mainHistogram.heuristicFilePath.string(),
+                        std::shared_ptr<lib90b::NonIidResult>(&oe->heuristicData.mainHistogram.entropyResults, [](lib90b::NonIidResult*){}),
+                        std::nullopt,
+                        std::nullopt,
+                        0
                     });
                 }
             }
@@ -161,7 +161,7 @@ void HeuristicManager::Render() {
 
         ImGui::SameLine(0, spacing);
 
-        ImGui::SameLine(0, spacing);
+        // Find Passing Decimation
         ImGui::PushStyleColor(ImGuiCol_Button,        Config::WHITE_BUTTON.normal);
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::WHITE_BUTTON.hovered);
         ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::WHITE_BUTTON.active);
@@ -169,11 +169,9 @@ void HeuristicManager::Render() {
         {
             std::string extraButton = std::string(reinterpret_cast<const char*>(u8"\uf12d")) + "  Find Passing Decimation";
             if (ImGui::Button(extraButton.c_str(), findFirstDecimationSize)) {
-                const std::filesystem::path convertedFilePath = oe->heuristicData.convertedFilePath;
-                
-                // Check if the path is not empty and the file exists
-                if (!convertedFilePath.empty() && std::filesystem::exists(convertedFilePath)) {
-                    oe->heuristicData.firstPassingDecimationResult = findFirstPassingDecimation(convertedFilePath);
+                const fs::path convertedFilePath = oe->heuristicData.mainHistogram.convertedFilePath;
+                if (!convertedFilePath.empty() && fs::exists(convertedFilePath)) {
+                    oe->heuristicData.mainHistogram.firstPassingDecimationResult = findFirstPassingDecimation(convertedFilePath);
                 } else {
                     std::cout << "Invalid file path or file does not exist: " << convertedFilePath << std::endl;
                 }
@@ -183,7 +181,7 @@ void HeuristicManager::Render() {
 
         ImGui::SameLine(0, spacing);
 
-        // Cog button
+        // Cog button to edit histogram
         ImGui::PushStyleColor(ImGuiCol_Button,        Config::WHITE_BUTTON.normal);
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::WHITE_BUTTON.hovered);
         ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::WHITE_BUTTON.active);
@@ -196,31 +194,22 @@ void HeuristicManager::Render() {
             ImGui::PopFont();
         }
         ImGui::PopStyleColor(4);
-
         ImGui::PopFont();
 
-        // Render Main Histogram using ImPlot
-        PrecomputedHistogram& hist = oe->heuristicData.mainHistogram;
-
-        // Only draw if we actually have data (non-empty bins)
-        bool hasData = std::any_of(hist.binCounts.begin(), hist.binCounts.end(),
-                                [](int c){ return c > 0; });
+        // Render main histogram (bars)
+        auto& hist = oe->heuristicData.mainHistogram;
+        bool hasData = std::any_of(hist.binCounts.begin(), hist.binCounts.end(), [](int c){ return c > 0; });
 
         std::string plotLabel = "##MainHistogramPlot_" + oe->oeName;
         if (ImPlot::BeginPlot(plotLabel.c_str(), ImVec2(-1, 300))) {
-            // Setup axes with auto-fit so they expand to the histogram range
             ImPlot::SetupAxes("Value", "Frequency", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
-
-            PrecomputedHistogram& hist = oe->heuristicData.mainHistogram;
-            bool hasData = std::any_of(hist.binCounts.begin(), hist.binCounts.end(),
-                                    [](int c){ return c > 0; });
 
             if (hasData) {
                 static std::vector<double> xs, ys;
                 xs.resize(hist.binCount);
                 ys.resize(hist.binCount);
 
-                for (int i = 0; i < hist.binCount; i++) {
+                for (int i = 0; i < hist.binCount; ++i) {
                     xs[i] = hist.minValue + (i + 0.5) * hist.binWidth;
                     ys[i] = static_cast<double>(hist.binCounts[i]);
                 }
@@ -228,29 +217,25 @@ void HeuristicManager::Render() {
                 ImPlot::PlotBars("##MainHistogramSamples", xs.data(), ys.data(), hist.binCount, hist.binWidth);
             }
 
-            // Draw regions as DragRects
-            for (size_t i = 0; i < oe->heuristicData.regions.size(); ++i) {
-                auto& region = oe->heuristicData.regions[i];
-                ImPlotRect& rect = region.rect;
+            // Draw drag rects for sub-hists
+            for (size_t i = 0; i < hist.subHists.size(); ++i) {
+                auto& sub = hist.subHists[i];
+                ImPlotRect& rect = sub.rect;
 
                 ImPlotRect plotLimits = ImPlot::GetPlotLimits();
-
-                // Keep the rectangle Y full height of the plot
                 rect.Y.Min = plotLimits.Y.Min;
                 rect.Y.Max = plotLimits.Y.Max;
 
-                // Draw the draggable rectangle
                 ImPlot::DragRect(static_cast<int>(i), 
-                                &rect.X.Min, &rect.Y.Min,
-                                &rect.X.Max, &rect.Y.Max,
-                                region.color, 
-                                ImPlotDragToolFlags_None);
+                                 &rect.X.Min, &rect.Y.Min,
+                                 &rect.X.Max, &rect.Y.Max,
+                                 sub.color,
+                                 ImPlotDragToolFlags_None);
 
-                // Clamp X to histogram min/max after dragging
-                rect.X.Min = std::max(rect.X.Min, static_cast<double>(oe->heuristicData.mainHistogram.minValue));
-                rect.X.Max = std::min(rect.X.Max, static_cast<double>(oe->heuristicData.mainHistogram.maxValue));
+                // Clamp X to histogram min/max
+                rect.X.Min = std::max(rect.X.Min, static_cast<double>(hist.minValue));
+                rect.X.Max = std::min(rect.X.Max, static_cast<double>(hist.maxValue));
 
-                // Ensure min <= max
                 if (rect.X.Min > rect.X.Max) std::swap(rect.X.Min, rect.X.Max);
             }
 
@@ -261,22 +246,17 @@ void HeuristicManager::Render() {
         ImGui::PushFont(Config::normal);
         ImGui::Separator();
 
-        // Render non-iid test results if available
+        // Main Non-IID results
         ImGui::Text("Main Histogram Non-IID results:");
-        if (oe->heuristicData.entropyResults.min_entropy.has_value()) {
-            const auto& res = oe->heuristicData.entropyResults;
-
-            if (res.H_original.has_value())
-                ImGui::BulletText("H_original: %.6f bits", res.H_original.value());
+        if (hist.entropyResults.min_entropy.has_value()) {
+            const auto& res = hist.entropyResults;
+            if (res.H_original.has_value()) ImGui::BulletText("H_original: %.6f bits", res.H_original.value());
             ImGui::SameLine();
-
-            if (res.H_bitstring.has_value())
-                ImGui::BulletText("H_bitstring: %.6f bits", res.H_bitstring.value());
+            if (res.H_bitstring.has_value()) ImGui::BulletText("H_bitstring: %.6f bits", res.H_bitstring.value());
             ImGui::SameLine();
-
             ImGui::BulletText("Min Entropy: %.6f bits", res.min_entropy.value());
-        } else if (oe->heuristicData.testsRunning) {
-            float t = std::chrono::duration<float>(std::chrono::steady_clock::now() - oe->heuristicData.startTime).count();
+        } else if (hist.testsRunning) {
+            float t = std::chrono::duration<float>(std::chrono::steady_clock::now() - hist.startTime).count();
             ImGui::Text("Running tests %.1fs %c", t, "|/-\\"[static_cast<int>(t*4) % 4]);
         } else {
             ImGui::BulletText("Non-IID results not available");
@@ -285,8 +265,8 @@ void HeuristicManager::Render() {
         ImGui::Separator();
 
         ImGui::Text("First Passing Decimation Result:");
-        if (oe->heuristicData.firstPassingDecimationResult != "") {
-            ImGui::BulletText("Result: %s", oe->heuristicData.firstPassingDecimationResult.c_str());
+        if (!hist.firstPassingDecimationResult.empty()) {
+            ImGui::BulletText("Result: %s", hist.firstPassingDecimationResult.c_str());
         } else {
             ImGui::BulletText("Result: Not yet ran.");
         }
@@ -295,7 +275,9 @@ void HeuristicManager::Render() {
     }
     ImGui::EndChild();
 
-    // Sub-Histograms
+    // ---------------------------------------------------------------------
+    // Sub-histograms: iterate mainHistogram.subHists
+    // ---------------------------------------------------------------------
     ImGui::BeginChild("SubHistograms", ImVec2(fullWidth, 0), true);
     {
         ImGui::PushFont(Config::fontH3_Bold);
@@ -304,78 +286,69 @@ void HeuristicManager::Render() {
         ImGui::PopFont();
         ImGui::Separator();
 
-        PrecomputedHistogram& hist = oe->heuristicData.mainHistogram;
-
-        for (size_t i = 0; i < oe->heuristicData.regions.size(); ++i) {
-            auto& region = oe->heuristicData.regions[i];
+        auto& main = oe->heuristicData.mainHistogram;
+        for (size_t i = 0; i < main.subHists.size(); ++i) {
+            auto& sub = main.subHists[i];
 
             // Convert rect range to bin indexes
-            int binMin = static_cast<int>((region.rect.X.Min - hist.minValue) / hist.binWidth);
-            int binMax = static_cast<int>((region.rect.X.Max - hist.minValue) / hist.binWidth);
-            binMin = std::clamp(binMin, 0, hist.binCount - 1);
-            binMax = std::clamp(binMax, 0, hist.binCount - 1);
+            int binMin = static_cast<int>((sub.rect.X.Min - main.minValue) / main.binWidth);
+            int binMax = static_cast<int>((sub.rect.X.Max - main.minValue) / main.binWidth);
+            binMin = std::clamp(binMin, 0, main.binCount - 1);
+            binMax = std::clamp(binMax, 0, main.binCount - 1);
             if (binMin > binMax) std::swap(binMin, binMax);
 
-            // Prepare sub-histogram data
+            // Prepare sub-histogram plot data (from main bins)
             std::vector<double> xs, ys;
             xs.reserve(binMax - binMin + 1);
             ys.reserve(binMax - binMin + 1);
-            for (int b = binMin; b <= binMax; b++) {
-                double xCenter = hist.minValue + (b + 0.5) * hist.binWidth;
+            for (int b = binMin; b <= binMax; ++b) {
+                double xCenter = main.minValue + (b + 0.5) * main.binWidth;
                 xs.push_back(xCenter);
-                ys.push_back(static_cast<double>(hist.binCounts[b]));
+                ys.push_back(static_cast<double>(main.binCounts[b]));
             }
 
-            // Each sub-histogram has its own child spanning full width
+            // Each sub-histogram child
             std::string childLabel = "SubHistogramChild_" + std::to_string(i);
             ImGui::BeginChild(childLabel.c_str(), ImVec2(-1, 260), true);
             {
-                // Left column (metadata + buttons)
+                // Left column: metadata + buttons
                 ImGui::BeginChild(("SubMeta_" + std::to_string(i)).c_str(), ImVec2(sidebarWidth - 10.0f, -1), false);
                 {
-                    std::string regionTitle = "Region " + std::to_string(region.regionIndex);
+                    std::string regionTitle = "Region " + std::to_string(sub.regionIndex);
 
-                    // --- Title on the left ---
                     ImGui::PushFont(Config::fontH3_Bold);
                     ImGui::Text(regionTitle.c_str());
                     ImGui::PopFont();
 
-                    // --- Buttons on the right ---
+                    // Buttons aligned right
                     ImVec2 runTestSize(30, 30);
                     ImVec2 configSize(30, 30);
                     float spacing = 6.0f;
                     float totalWidth = runTestSize.x + spacing + configSize.x;
-
                     float regionWidth = ImGui::GetContentRegionAvail().x;
                     float startX = regionWidth - totalWidth + ImGui::GetStyle().ItemSpacing.x;
-
                     ImGui::SameLine();
                     ImGui::SetCursorPosX(startX - 16.0f);
 
                     ImGui::PushFont(Config::normal);
 
-                    // Run Test button
+                    // Run Test (for this sub-histogram)
                     ImGui::PushStyleColor(ImGuiCol_Button,        Config::MINT_BUTTON.normal);
                     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::MINT_BUTTON.hovered);
                     ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::MINT_BUTTON.active);
                     ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_DARK_CHARCOAL);
                     {
-                        
                         if (ImGui::Button(std::string(reinterpret_cast<const char*>(u8"\uf83e")).c_str())) {
-                            auto oe = GetSelectedOE();
-                            if (!oe) return;
-
-                            auto& region = oe->heuristicData.regions[i];
-                            region.testsRunning = true;
-                            region.startTime = std::chrono::steady_clock::now();
+                            sub.testsRunning = true;
+                            sub.startTime = std::chrono::steady_clock::now();
 
                             if (m_onCommand) {
                                 m_onCommand(RunStatisticalTestCommand{
-                                    oe->heuristicData.heuristicFilePath,        // original decimal file
-                                    std::shared_ptr<lib90b::NonIidResult>(&region.entropyResults, [](lib90b::NonIidResult*){}),
-                                    region.rect.X.Min,                           // optional min
-                                    region.rect.X.Max,                           // optional max
-                                    region.regionIndex                           // sub-region index
+                                    oe->heuristicData.mainHistogram.heuristicFilePath.string(),
+                                    std::shared_ptr<lib90b::NonIidResult>(&sub.entropyResults, [](lib90b::NonIidResult*){}),
+                                    sub.rect.X.Min,
+                                    sub.rect.X.Max,
+                                    sub.regionIndex
                                 });
                             }
                         }
@@ -384,44 +357,38 @@ void HeuristicManager::Render() {
 
                     ImGui::SameLine(0, spacing);
 
-                    // Config (cog) button
+                    // Config (cog)
                     ImGui::PushStyleColor(ImGuiCol_Button,        Config::WHITE_BUTTON.normal);
                     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::WHITE_BUTTON.hovered);
                     ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::WHITE_BUTTON.active);
                     ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_DARK_CHARCOAL);
                     {
                         if (ImGui::Button((std::string(reinterpret_cast<const char*>(u8"\uf013")).c_str()))) {
-                            // TODO: config
+                            // TODO: open sub-histogram config
                         }
                     }
                     ImGui::PopStyleColor(4);
 
-                    // --- Metadata below ---
+                    // Metadata below
                     ImGui::Separator();
                     ImGui::Text("%s Metadata:", regionTitle.c_str());
-                    ImGui::BulletText("Min: %d", (int)region.rect.X.Min);
-                    ImGui::BulletText("Max: %d", (int)region.rect.X.Max);
+                    ImGui::BulletText("Min: %u", sub.minValue);
+                    ImGui::BulletText("Max: %u", sub.maxValue);
 
-                    int binStart = static_cast<int>((region.rect.X.Min - hist.minValue) / hist.binWidth);
-                    int binEnd   = static_cast<int>((region.rect.X.Max - hist.minValue) / hist.binWidth);
-                    binStart = std::max(0, binStart);
-                    binEnd   = std::min(hist.binCount - 1, binEnd);
-                    int subBinCount = std::max(0, binEnd - binStart + 1);
-
+                    int subBinCount = std::max(0, binMax - binMin + 1);
                     ImGui::BulletText("Bins: %d", subBinCount);
-                    ImGui::BulletText("Bin Width: %.2f", hist.binWidth);
+                    ImGui::BulletText("Bin Width: %.2f", main.binWidth);
 
                     ImGui::Separator();
                     ImGui::Text("%s Non-IID results:", regionTitle.c_str());
-                    if (region.entropyResults.min_entropy.has_value()) {
-                        const auto& res = region.entropyResults;
-                        if (res.H_original.has_value())
-                            ImGui::BulletText("H_original: %.6f bits", res.H_original.value());
-                        if (res.H_bitstring.has_value())
-                            ImGui::BulletText("H_bitstring: %.6f bits", res.H_bitstring.value());
+
+                    if (sub.entropyResults.min_entropy.has_value()) {
+                        const auto& res = sub.entropyResults;
+                        if (res.H_original.has_value()) ImGui::BulletText("H_original: %.6f bits", res.H_original.value());
+                        if (res.H_bitstring.has_value()) ImGui::BulletText("H_bitstring: %.6f bits", res.H_bitstring.value());
                         ImGui::BulletText("Min Entropy: %.6f bits", res.min_entropy.value());
-                    } else if (region.testsRunning) {
-                        float t = std::chrono::duration<float>(std::chrono::steady_clock::now() - region.startTime).count();
+                    } else if (sub.testsRunning) {
+                        float t = std::chrono::duration<float>(std::chrono::steady_clock::now() - sub.startTime).count();
                         ImGui::Text("Running %.1fs %c", t, "|/-\\"[static_cast<int>(t*4) % 4]);
                     } else {
                         ImGui::BulletText("Non-IID results not available");
@@ -438,18 +405,13 @@ void HeuristicManager::Render() {
                 {
                     std::string plotLabel = "##SubHistogramPlot_" + std::to_string(i);
                     if (ImPlot::BeginPlot(plotLabel.c_str(), ImVec2(-1, -1))) {
-                        ImPlot::SetupAxes("Value", "Frequency",
-                                        ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
-
+                        ImPlot::SetupAxes("Value", "Frequency", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
                         if (!xs.empty()) {
-                            // Copy region color but make fully opaque
-                            ImVec4 opaqueColor = region.color;
-                            opaqueColor.w = 1.0f; // Force to not be transparent
-
+                            ImVec4 opaqueColor = sub.color;
+                            opaqueColor.w = 1.0f;
                             ImPlot::SetNextFillStyle(opaqueColor);
-                            ImPlot::PlotBars("##SubHistogramSamples", xs.data(), ys.data(), (int)xs.size(), hist.binWidth);
+                            ImPlot::PlotBars("##SubHistogramSamples", xs.data(), ys.data(), (int)xs.size(), main.binWidth);
                         }
-
                         ImPlot::EndPlot();
                     }
                 }
@@ -463,7 +425,6 @@ void HeuristicManager::Render() {
     ImGui::EndChild();
 
     ImGui::PopStyleColor();
-
     RenderPopups();
 }
 
@@ -482,44 +443,42 @@ void HeuristicManager::RenderPopups() {
 }
 
 void HeuristicManager::RenderMainHistogramConfigPopup() {
-    // Keep calling OpenPopup every frame until modal is shown
     if (m_editHistogramPopupOpen) {
         ImGui::OpenPopup("Edit Main Histogram");
     }
 
-    ImVec2 minSize(400, 200);  // minimum size
-    ImVec2 maxSize(FLT_MAX, FLT_MAX); // no real max
+    ImVec2 minSize(400, 200);
+    ImVec2 maxSize(FLT_MAX, FLT_MAX);
     ImGui::SetNextWindowSizeConstraints(minSize, maxSize);
 
     if (ImGui::BeginPopupModal("Edit Main Histogram", nullptr)) {
         auto oe = GetSelectedOE();
+        if (!oe) { ImGui::EndPopup(); return; }
+
         std::string editMainHeuristicTitle = "Edit Main Histogram - " + oe->oeName;
         ImGui::Text(editMainHeuristicTitle.c_str());
 
-        // File selection button
+        // File selection — store in mainHistogram
         if (auto file = FileSelector("HistogramFileDlg", "Load Raw Samples", ".data,.bin,.txt,.*")) {
             fs::path destDir = fs::path(m_currentProject->path) / oe->oePath;
             if (auto dest = CopyFileToDirectory(*file, destDir)) {
-                // Store copied file path in the OE
-                oe->heuristicData.heuristicFilePath = dest->string();
+                oe->heuristicData.mainHistogram.heuristicFilePath = dest->string();
             }
         }
         ImGui::SameLine();
 
-        // Show the copied file path (if any)
-        if (!oe->heuristicData.heuristicFilePath.empty()) {
-            fs::path filePath(oe->heuristicData.heuristicFilePath);
+        // Show copied file path
+        if (!oe->heuristicData.mainHistogram.heuristicFilePath.empty()) {
+            fs::path filePath(oe->heuristicData.mainHistogram.heuristicFilePath);
             std::string filename = filePath.filename().string();
-
             ImGui::TextWrapped("Current file: %s", filename.c_str());
-
             if (ImGui::IsItemHovered()) {
                 ImGui::BeginTooltip();
-                ImGui::TextUnformatted(oe->heuristicData.heuristicFilePath.c_str());
+                ImGui::TextUnformatted(oe->heuristicData.mainHistogram.heuristicFilePath.string().c_str());
                 ImGui::EndTooltip();
             }
         } else {
-            ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "No file loaded for this OE");
+            ImGui::TextColored(ImVec4(0.6f,0.6f,0.6f,1.0f), "No file loaded for this OE");
         }
 
         if (ImGui::Button("Process uploaded file")) {
@@ -541,17 +500,14 @@ void HeuristicManager::RenderMainHistogramConfigPopup() {
         ImGui::PopFont();
         ImGui::Separator();
 
+        // Cancel button at bottom
         ImVec2 windowSize = ImGui::GetWindowSize();
-        ImVec2 buttonSize = ImVec2(120, 0); // width, auto height
-
-        // Calculate Y so the button sits at the bottom, with some padding
+        ImVec2 buttonSize = ImVec2(120, 0);
         float bottomY = windowSize.y - ImGui::GetStyle().WindowPadding.y - buttonSize.y - 20.0f;
-
         ImGui::SetCursorPosY(bottomY);
-
         if (ImGui::Button("Cancel", buttonSize)) {
             ImGui::CloseCurrentPopup();
-            m_editHistogramPopupOpen = false; // reset flag
+            m_editHistogramPopupOpen = false;
         }
 
         ImGui::EndPopup();

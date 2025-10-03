@@ -57,9 +57,9 @@ void Application::Update() {
                 // 1. Convert decimal file first
                 std::string convertedFile;
                 lib90b::EntropyInputData entropyData;
-                if (!oe.heuristicData.heuristicFilePath.empty()) {
+                if (!oe.heuristicData.mainHistogram.heuristicFilePath.empty()) {
                     if (!dataManager.ConvertDecimalFile(
-                            oe.heuristicData.heuristicFilePath, // raw decimal file
+                            oe.heuristicData.mainHistogram.heuristicFilePath, // raw decimal file
                             entropyData,
                             convertedFile)) 
                     {
@@ -67,7 +67,7 @@ void Application::Update() {
                         return;
                     }
 
-                    oe.heuristicData.convertedFilePath = convertedFile;
+                    oe.heuristicData.mainHistogram.convertedFilePath = convertedFile;
                 } else {
                     uiManager.PushNotification("No raw file uploaded to convert.", 5.0f, ImVec4(1,0,0,1));
                     return;

@@ -1,11 +1,12 @@
 
 #pragma once
 
-#include "../data/histogram/histogram.h"
+//#include "../data/histogram/histogram.h"
 
 #include <future>
 #include <string>
 #include <vector>
+#include <filesystem>
 
 #include <imgui.h>
 #include <implot.h>
@@ -17,35 +18,36 @@ enum class Tabs {
     HeuristicAssessment
 };
 
-struct HistogramRegion {
-    ImPlotRect rect;   // the draggable rectangle
-    ImVec4 color;      // user-selected color
-    bool active = true;
+struct BaseHistogram {
+    static constexpr int binCount = 1500;
+    unsigned int minValue = 0;
+    unsigned int maxValue = 0;
+    double binWidth = 0.0;
+    std::array<int, binCount> binCounts{};
 
     lib90b::EntropyInputData entropyData;
     lib90b::NonIidResult entropyResults;
-    std::string convertedFilePath;
-
-    std::string subFilePath;
-    int regionIndex = 0;
-
+    
     bool testsRunning = false;
     std::chrono::steady_clock::time_point startTime;
 };
 
+struct SubHistogram : public BaseHistogram {
+    ImPlotRect rect;
+    ImVec4 color;
+    int regionIndex = 0;
+};
+
+struct MainHistogram : public BaseHistogram {
+    std::string firstPassingDecimationResult;
+    std::filesystem::path heuristicFilePath;
+    std::filesystem::path convertedFilePath;
+
+    std::vector<SubHistogram> subHists;
+};
+
 struct HeuristicData {
-    std::string heuristicFilePath;
-    std::string convertedFilePath;
-    std::string firstPassingDecimationResult = "";
-
-    PrecomputedHistogram mainHistogram;
-    std::vector<HistogramRegion> regions;
-
-    lib90b::EntropyInputData entropyData;
-    lib90b::NonIidResult entropyResults;
-
-    bool testsRunning = false;
-    std::chrono::steady_clock::time_point startTime;
+    MainHistogram mainHistogram;
 };
 
 struct OperationalEnvironment {

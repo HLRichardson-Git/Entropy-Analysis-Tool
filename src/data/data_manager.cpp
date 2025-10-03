@@ -123,181 +123,115 @@ Project DataManager::LoadProject(const std::string& filename) {
         return proj;
     }
 
-    // Read name from JSON
-    if (j.contains("name") && j["name"].is_string()) {
-        proj.name = j["name"].get<std::string>();
-    } else {
-        proj.name = fullPath.stem().string(); // fallback
-    }
-
-    // Store the path (absolute internally)
+    // Project name
+    proj.name = j.value("name", fullPath.stem().string());
     proj.path = fullPath.parent_path().string();
 
-    // Load operational environments
     proj.operationalEnvironments.clear();
     if (j.contains("operationalEnvironments") && j["operationalEnvironments"].is_array()) {
         for (auto& oeJson : j["operationalEnvironments"]) {
-            // Skip null or non-object entries
             if (!oeJson.is_object()) continue;
 
             OperationalEnvironment oe;
             oe.oeName = oeJson.value("name", "");
             oe.oePath = oeJson.value("path", "");
 
-            // Validate the OE JSON file exists
             fs::path oeJsonPath = fs::absolute(proj.path) / oe.oePath / "oe.json";
             if (!fs::exists(oeJsonPath)) {
                 std::cerr << "Warning: OE JSON file does not exist: " << oeJsonPath << "\n";
-                continue; // skip this OE
+                continue;
             }
 
-            // Parse oe.json file
             std::ifstream oeIn(oeJsonPath);
-            if (oeIn) {
-                try {
-                    nlohmann::json oeFileJson;
-                    oeIn >> oeFileJson;
-
-                    // Check name matches
-                    std::string nameInFile = oeFileJson.value("name", "");
-                    if (nameInFile != oe.oeName) {
-                        std::cerr << "Warning: OE name mismatch in " << oeJsonPath 
-                                << " (expected: " << oe.oeName << ", found: " << nameInFile << ")\n";
-                        continue; // skip this OE
-                    }
-
-                    // Load heuristic data if present
-                    if (oeFileJson.contains("heuristicData") && oeFileJson["heuristicData"].is_object()) {
-                        auto& heuristicJson = oeFileJson["heuristicData"];
-
-                        if (heuristicJson.contains("mainHistogram") && heuristicJson["mainHistogram"].is_object()) {
-                            auto& mainHistJson = heuristicJson["mainHistogram"];
-
-                            if (mainHistJson.contains("heuristicFilePath") && mainHistJson["heuristicFilePath"].is_string()) {
-                                oe.heuristicData.heuristicFilePath = mainHistJson["heuristicFilePath"].get<std::string>();
-                            }
-
-                            if (mainHistJson.contains("convertedFilePath") && mainHistJson["convertedFilePath"].is_string()) {
-                                oe.heuristicData.convertedFilePath = mainHistJson["convertedFilePath"].get<std::string>();
-                            }
-
-                            // Load precomputed histogram if available
-                            if (mainHistJson.contains("computedBins") && mainHistJson["computedBins"].is_array()) {
-                                auto& h = oe.heuristicData.mainHistogram;
-
-                                if (mainHistJson.contains("minValue") && mainHistJson["minValue"].is_number()) {
-                                    h.minValue = mainHistJson["minValue"].get<unsigned int>();
-                                }
-                                if (mainHistJson.contains("maxValue") && mainHistJson["maxValue"].is_number()) {
-                                    h.maxValue = mainHistJson["maxValue"].get<unsigned int>();
-                                }
-                                if (mainHistJson.contains("binWidth")) {
-                                    h.binWidth = mainHistJson["binWidth"].get<double>();
-                                }
-
-                                // Copy counts
-                                size_t i = 0;
-                                for (auto& bin : mainHistJson["computedBins"]) {
-                                    if (bin.is_number_integer() && i < h.binCounts.size()) {
-                                        h.binCounts[i++] = bin.get<int>();
-                                    }
-                                }
-                            }
-
-                            // Load main histogram statistical results
-                            if (mainHistJson.contains("nonIidResults") && mainHistJson["nonIidResults"].is_object()) {
-                                auto& statsJson = mainHistJson["nonIidResults"];
-                                auto& res = oe.heuristicData.entropyResults;
-
-                                if (statsJson.contains("H_original") && statsJson["H_original"].is_number()) {
-                                    res.H_original = statsJson["H_original"].get<double>();
-                                }
-                                if (statsJson.contains("H_bitstring") && statsJson["H_bitstring"].is_number()) {
-                                    res.H_bitstring = statsJson["H_bitstring"].get<double>();
-                                }
-                                if (statsJson.contains("min_entropy") && statsJson["min_entropy"].is_number()) {
-                                    res.min_entropy = statsJson["min_entropy"].get<double>();
-                                }
-                            }
-
-                            // Load first passing decimation result if present
-                            if (mainHistJson.contains("firstPassingDecimationResult") &&
-                                mainHistJson["firstPassingDecimationResult"].is_string()) 
-                            {
-                                oe.heuristicData.firstPassingDecimationResult =
-                                    mainHistJson["firstPassingDecimationResult"].get<std::string>();
-                            } else {
-                                oe.heuristicData.firstPassingDecimationResult.clear();
-                            }
-                        }
-
-                        // Load subHistograms if present
-                        if (heuristicJson.contains("subHistograms") && heuristicJson["subHistograms"].is_array()) {
-                            for (auto& subHistJson : heuristicJson["subHistograms"]) {
-                                if (!subHistJson.is_object()) continue;
-
-                                HistogramRegion region;
-
-                                // Load min/max values safely as double
-                                double minVal = subHistJson.value("min", 0.0);
-                                double maxVal = subHistJson.value("max", minVal); // fallback to min if missing
-
-                                // Ensure min <= max
-                                if (minVal > maxVal) std::swap(minVal, maxVal);
-
-                                region.rect.X.Min = minVal;
-                                region.rect.X.Max = maxVal;
-
-                                // Y range will be set dynamically during rendering, so initialize with 0
-                                region.rect.Y.Min = 0.0;
-                                region.rect.Y.Max = 0.0;
-
-                                // Load color, default to red if missing
-                                if (subHistJson.contains("color") && subHistJson["color"].is_array() && subHistJson["color"].size() == 4) {
-                                    region.color.x = subHistJson["color"][0].get<float>();
-                                    region.color.y = subHistJson["color"][1].get<float>();
-                                    region.color.z = subHistJson["color"][2].get<float>();
-                                    region.color.w = subHistJson["color"][3].get<float>();
-                                } else {
-                                    region.color = ImVec4(0.84f, 0.28f, 0.28f, 0.25f); // default red
-                                }
-
-                                // Load subHistograms statistical results
-                                if (subHistJson.contains("nonIidResults") && subHistJson["nonIidResults"].is_object()) {
-                                    auto& statsJson = subHistJson["nonIidResults"];
-                                    auto& regionRes = region.entropyResults;
-
-                                    if (statsJson.contains("H_original") && statsJson["H_original"].is_number()) {
-                                        regionRes.H_original = statsJson["H_original"].get<double>();
-                                    }
-                                    if (statsJson.contains("H_bitstring") && statsJson["H_bitstring"].is_number()) {
-                                        regionRes.H_bitstring = statsJson["H_bitstring"].get<double>();
-                                    }
-                                    if (statsJson.contains("min_entropy") && statsJson["min_entropy"].is_number()) {
-                                        regionRes.min_entropy = statsJson["min_entropy"].get<double>();
-                                    }
-                                }
-
-                                // Set the regionIndex
-                                region.regionIndex = static_cast<int>(oe.heuristicData.regions.size()) + 1;
-
-                                // Add to regions vector
-                                oe.heuristicData.regions.push_back(std::move(region));
-                            }
-                        }
-                    }
-                        
-                } catch (const std::exception& e) {
-                    std::cerr << "Warning: Failed to parse OE JSON file: " << oeJsonPath 
-                            << " (" << e.what() << ")\n";
-                    continue;
-                }
-            } else {
+            if (!oeIn) {
                 std::cerr << "Warning: Could not open OE JSON file: " << oeJsonPath << "\n";
                 continue;
             }
 
-            proj.operationalEnvironments.push_back(oe);
+            try {
+                nlohmann::json oeFileJson;
+                oeIn >> oeFileJson;
+
+                std::string nameInFile = oeFileJson.value("name", "");
+                if (nameInFile != oe.oeName) {
+                    std::cerr << "Warning: OE name mismatch in " << oeJsonPath 
+                              << " (expected: " << oe.oeName << ", found: " << nameInFile << ")\n";
+                    continue;
+                }
+
+                if (oeFileJson.contains("heuristicData") && oeFileJson["heuristicData"].is_object()) {
+                    auto& heuristicJson = oeFileJson["heuristicData"];
+                    auto& mainHist = oe.heuristicData.mainHistogram;
+
+                    if (heuristicJson.contains("mainHistogram") && heuristicJson["mainHistogram"].is_object()) {
+                        auto& mhJson = heuristicJson["mainHistogram"];
+                        mainHist.heuristicFilePath = mhJson.value("heuristicFilePath", "");
+                        mainHist.convertedFilePath = mhJson.value("convertedFilePath", "");
+                        mainHist.minValue = mhJson.value("minValue", 0u);
+                        mainHist.maxValue = mhJson.value("maxValue", 0u);
+                        mainHist.binWidth  = mhJson.value("binWidth", 1.0);
+
+                        if (mhJson.contains("computedBins") && mhJson["computedBins"].is_array()) {
+                            mainHist.binCounts.fill(0);
+                            size_t i = 0;
+                            for (auto& bin : mhJson["computedBins"]) {
+                                if (bin.is_number_integer() && i < mainHist.binCounts.size()) {
+                                    mainHist.binCounts[i++] = bin.get<int>();
+                                }
+                            }
+                        }
+
+                        if (mhJson.contains("nonIidResults") && mhJson["nonIidResults"].is_object()) {
+                            auto& resJson = mhJson["nonIidResults"];
+                            auto& res = mainHist.entropyResults;
+                            res.H_original  = resJson.value("H_original", res.H_original.value_or(0.0));
+                            res.H_bitstring = resJson.value("H_bitstring", res.H_bitstring.value_or(0.0));
+                            res.min_entropy = resJson.value("min_entropy", res.min_entropy.value_or(0.0));
+                        }
+
+                        mainHist.firstPassingDecimationResult = mhJson.value("firstPassingDecimationResult", "");
+                    }
+
+                    // Load subHistograms
+                    if (heuristicJson.contains("subHistograms") && heuristicJson["subHistograms"].is_array()) {
+                        for (auto& shJson : heuristicJson["subHistograms"]) {
+                            if (!shJson.is_object()) continue;
+
+                            SubHistogram sh;
+                            sh.rect.X.Min = shJson.value("min", 0.0);
+                            sh.rect.X.Max = shJson.value("max", sh.rect.X.Min);
+                            sh.rect.Y.Min = 0.0;
+                            sh.rect.Y.Max = 0.0;
+
+                            if (shJson.contains("color") && shJson["color"].is_array() && shJson["color"].size() == 4) {
+                                sh.color.x = shJson["color"][0].get<float>();
+                                sh.color.y = shJson["color"][1].get<float>();
+                                sh.color.z = shJson["color"][2].get<float>();
+                                sh.color.w = shJson["color"][3].get<float>();
+                            } else {
+                                sh.color = ImVec4(0.84f, 0.28f, 0.28f, 0.25f);
+                            }
+
+                            if (shJson.contains("nonIidResults") && shJson["nonIidResults"].is_object()) {
+                                auto& rJson = shJson["nonIidResults"];
+                                auto& rRes = sh.entropyResults;
+                                rRes.H_original  = rJson.value("H_original", rRes.H_original.value_or(0.0));
+                                rRes.H_bitstring = rJson.value("H_bitstring", rRes.H_bitstring.value_or(0.0));
+                                rRes.min_entropy = rJson.value("min_entropy", rRes.min_entropy.value_or(0.0));
+                            }
+
+                            sh.regionIndex = static_cast<int>(oe.heuristicData.mainHistogram.subHists.size()) + 1;
+                            oe.heuristicData.mainHistogram.subHists.push_back(std::move(sh));
+                        }
+                    }
+                }
+
+            } catch (const std::exception& e) {
+                std::cerr << "Warning: Failed to parse OE JSON: " << oeJsonPath << " (" << e.what() << ")\n";
+                continue;
+            }
+
+            proj.operationalEnvironments.push_back(std::move(oe));
         }
     }
 
@@ -532,27 +466,22 @@ std::vector<std::string> DataManager::GetVendorList() {
 void DataManager::UpdateOEsForProject(Project& project) {
     fs::path projectDir = fs::path(project.path);
     fs::path oeParentDir = projectDir / "OE";
-
-    // Ensure the parent OE folder exists
-    if (!fs::exists(oeParentDir)) {
-        fs::create_directories(oeParentDir);
-    }
+    if (!fs::exists(oeParentDir)) fs::create_directories(oeParentDir);
 
     for (auto& oe : project.operationalEnvironments) {
-        fs::path oldDir = projectDir / oe.oePath; // full path to OE folder
+        fs::path oldDir = projectDir / oe.oePath;
         fs::path newDir = oeParentDir / oe.oeName;
 
         if (fs::exists(oldDir) && oldDir != newDir) {
             try {
                 fs::rename(oldDir, newDir);
-
-                // If heuristic path pointed to oldDir, update it
-                if (!oe.heuristicData.heuristicFilePath.empty()) {
-                    fs::path oldHeuristicPath = oe.heuristicData.heuristicFilePath;
-                    if (oldHeuristicPath.string().find(oldDir.string()) == 0) {
-                        fs::path relativePath = fs::relative(oldHeuristicPath, oldDir);
-                        fs::path newHeuristicPath = newDir / relativePath;
-                        oe.heuristicData.heuristicFilePath = newHeuristicPath.string();
+                // Update main histogram file path if needed
+                auto& mainHist = oe.heuristicData.mainHistogram;
+                if (!mainHist.heuristicFilePath.empty()) {
+                    fs::path oldPath = mainHist.heuristicFilePath;
+                    if (oldPath.string().find(oldDir.string()) == 0) {
+                        fs::path rel = fs::relative(oldPath, oldDir);
+                        mainHist.heuristicFilePath = (newDir / rel).string();
                     }
                 }
             } catch (const std::exception& e) {
@@ -560,98 +489,80 @@ void DataManager::UpdateOEsForProject(Project& project) {
             }
         }
 
-        // Update oe.json in new directory
         nlohmann::json oeJson;
         oeJson["name"] = oe.oeName;
 
         nlohmann::json heuristicJson;
+        auto& mainHist = oe.heuristicData.mainHistogram;
 
-        // Only save heuristic file path if it exists
-        if (!oe.heuristicData.heuristicFilePath.empty()) {
-            nlohmann::json mainHistogramJson;
-            mainHistogramJson["heuristicFilePath"] = oe.heuristicData.heuristicFilePath;
+        if (!mainHist.heuristicFilePath.empty()) {
+            nlohmann::json mhJson;
+            mhJson["heuristicFilePath"] = mainHist.heuristicFilePath;
+            mhJson["convertedFilePath"] = mainHist.convertedFilePath;
+            
+            mhJson["minValue"] = mainHist.minValue;
+            mhJson["maxValue"] = mainHist.maxValue;
+            mhJson["binWidth"] = mainHist.binWidth;
+            mhJson["computedBins"] = mainHist.binCounts;
 
-            if (!oe.heuristicData.convertedFilePath.empty()) {
-                mainHistogramJson["convertedFilePath"] = oe.heuristicData.convertedFilePath;
+            if (mainHist.entropyResults.min_entropy.has_value()) {
+                auto& res = mainHist.entropyResults;
+                nlohmann::json resJson;
+                if (res.H_original.has_value())  resJson["H_original"]  = res.H_original.value();
+                if (res.H_bitstring.has_value()) resJson["H_bitstring"] = res.H_bitstring.value();
+                resJson["min_entropy"] = res.min_entropy.value();
+                mhJson["nonIidResults"] = resJson;
             }
 
-            // Save histogram stats if available
-            if (oe.heuristicData.mainHistogram.binCounts.size() > 0) {
-                mainHistogramJson["minValue"] = oe.heuristicData.mainHistogram.minValue;
-                mainHistogramJson["maxValue"] = oe.heuristicData.mainHistogram.maxValue;
-                mainHistogramJson["binWidth"] = oe.heuristicData.mainHistogram.binWidth;
-                mainHistogramJson["computedBins"] = oe.heuristicData.mainHistogram.binCounts;
-            }
+            if (!mainHist.firstPassingDecimationResult.empty())
+                mhJson["firstPassingDecimationResult"] = mainHist.firstPassingDecimationResult;
 
-            // Save main histogram Non-IID results
-            if (oe.heuristicData.entropyResults.min_entropy.has_value()) {
-                const auto& res = oe.heuristicData.entropyResults;
-                nlohmann::json resultsJson;
-
-                if (res.H_original.has_value()) resultsJson["H_original"] = res.H_original.value();
-                if (res.H_bitstring.has_value()) resultsJson["H_bitstring"] = res.H_bitstring.value();
-                resultsJson["min_entropy"] = res.min_entropy.value();
-
-                mainHistogramJson["nonIidResults"] = resultsJson;
-            }
-
-            // Save first passing decimation result
-            if (!oe.heuristicData.firstPassingDecimationResult.empty()) {
-                mainHistogramJson["firstPassingDecimationResult"] = oe.heuristicData.firstPassingDecimationResult;
-            }
-
-            // --- Save subHistograms ---
-            nlohmann::json subHistogramsJson = nlohmann::json::array();
-            for (const auto& region : oe.heuristicData.regions) {
-                nlohmann::json subHist;
-                subHist["min"] = region.rect.X.Min;
-                subHist["max"] = region.rect.X.Max;
-                subHist["color"] = { region.color.x, region.color.y, region.color.z, region.color.w };
-
-                // Save statistical test / Non-IID results
-                if (region.entropyResults.min_entropy.has_value()) {
-                    const auto& res = region.entropyResults;
-                    nlohmann::json resultsJson;
-
-                    if (res.H_original.has_value()) resultsJson["H_original"] = res.H_original.value();
-                    if (res.H_bitstring.has_value()) resultsJson["H_bitstring"] = res.H_bitstring.value();
-                    resultsJson["min_entropy"] = res.min_entropy.value();
-
-                    subHist["nonIidResults"] = resultsJson;
+            // Save subHistograms
+            nlohmann::json subHistJson = nlohmann::json::array();
+            for (auto& sh : oe.heuristicData.mainHistogram.subHists) {
+                nlohmann::json j;
+                j["min"] = sh.rect.X.Min;
+                j["max"] = sh.rect.X.Max;
+                j["color"] = { sh.color.x, sh.color.y, sh.color.z, sh.color.w };
+                if (sh.entropyResults.min_entropy.has_value()) {
+                    auto& res = sh.entropyResults;
+                    nlohmann::json rj;
+                    if (res.H_original.has_value())  rj["H_original"]  = res.H_original.value();
+                    if (res.H_bitstring.has_value()) rj["H_bitstring"] = res.H_bitstring.value();
+                    rj["min_entropy"] = res.min_entropy.value();
+                    j["nonIidResults"] = rj;
                 }
-                
-                subHistogramsJson.push_back(subHist);
+                subHistJson.push_back(j);
             }
 
-            heuristicJson["mainHistogram"] = mainHistogramJson;
-            heuristicJson["subHistograms"] = subHistogramsJson;
+            heuristicJson["mainHistogram"] = mhJson;
+            heuristicJson["subHistograms"] = subHistJson;
         }
 
         oeJson["heuristicData"] = heuristicJson;
 
         fs::path oeJsonPath = newDir / "oe.json";
-        {
-            std::ofstream out(oeJsonPath);
-            if (out.is_open()) out << oeJson.dump(4);
-        }
+        std::ofstream out(oeJsonPath);
+        if (out.is_open()) out << oeJson.dump(4);
 
-        // Update path in project.json relative to projectDir
         oe.oePath = fs::relative(newDir, projectDir).string();
     }
 }
 
 // Heuristic
 void DataManager::processHistogramForProject(Project& project, int oeIndex, ThreadPool& pool, NotificationCallback notify) {
-    auto& oe = project.operationalEnvironments[oeIndex];
+    auto* oePtr = &project.operationalEnvironments[oeIndex];
 
-    pool.Enqueue([&, oeIndex, notify]() {
-        if (notify) notify("Processing histogram...", 5.0f, ImVec4(0.1f, 0.7f, 1.0f, 1.0f)); // info blue
+    pool.Enqueue([oePtr, notify]() {
+        if (notify) notify("Processing histogram...", 5.0f, ImVec4(0.1f, 0.7f, 1.0f, 1.0f));
 
-        PrecomputedHistogram hist = computeHistogramFromFile(oe.heuristicData.heuristicFilePath);
+        auto filePath = oePtr->heuristicData.mainHistogram.heuristicFilePath;
+        MainHistogram hist = computeHistogramFromFile(filePath);
+        hist.heuristicFilePath = filePath; // preserve
+        hist.convertedFilePath  = oePtr->heuristicData.mainHistogram.convertedFilePath;   // preserve converted path
+        oePtr->heuristicData.mainHistogram = std::move(hist);
 
-        oe.heuristicData.mainHistogram = std::move(hist);
-
-        if (notify) notify("Histogram processing complete!", 5.0f, ImVec4(0.2f, 1.0f, 0.2f, 1.0f)); // green
+        if (notify) notify("Histogram processing complete!", 5.0f, ImVec4(0.2f, 1.0f, 0.2f, 1.0f));
     });
 }
 
