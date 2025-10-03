@@ -212,6 +212,9 @@ Project DataManager::LoadProject(const std::string& filename) {
                                 sh.color = ImVec4(0.84f, 0.28f, 0.28f, 0.25f);
                             }
 
+                            sh.minValue = shJson.value("min", 0u);
+                            sh.maxValue = shJson.value("max", 0u);
+
                             if (shJson.contains("nonIidResults") && shJson["nonIidResults"].is_object()) {
                                 auto& rJson = shJson["nonIidResults"];
                                 auto& rRes = sh.entropyResults;
@@ -220,7 +223,7 @@ Project DataManager::LoadProject(const std::string& filename) {
                                 rRes.min_entropy = rJson.value("min_entropy", rRes.min_entropy.value_or(0.0));
                             }
 
-                            sh.regionIndex = static_cast<int>(oe.heuristicData.mainHistogram.subHists.size()) + 1;
+                            sh.subHistIndex = static_cast<int>(oe.heuristicData.mainHistogram.subHists.size()) + 1;
                             oe.heuristicData.mainHistogram.subHists.push_back(std::move(sh));
                         }
                     }
@@ -499,7 +502,7 @@ void DataManager::UpdateOEsForProject(Project& project) {
             nlohmann::json mhJson;
             mhJson["heuristicFilePath"] = mainHist.heuristicFilePath;
             mhJson["convertedFilePath"] = mainHist.convertedFilePath;
-            
+
             mhJson["minValue"] = mainHist.minValue;
             mhJson["maxValue"] = mainHist.maxValue;
             mhJson["binWidth"] = mainHist.binWidth;

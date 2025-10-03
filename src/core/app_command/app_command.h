@@ -35,12 +35,21 @@ struct ProcessHistogramCommand {
 };
 
 struct RunStatisticalTestCommand {
+    int oeIndex;
+    int subHistIndex = 0;
+
     std::filesystem::path inputFile;   
     std::shared_ptr<lib90b::NonIidResult> output;
 
     std::optional<double> minValue;
     std::optional<double> maxValue;
-    int regionIndex = 0;
+};
+
+struct FindPassingDecimationCommand {
+    int oeIndex;
+
+    std::filesystem::path inputFile;
+    std::shared_ptr<std::string> output;
 };
 
 using AppCommand = std::variant<
@@ -50,7 +59,8 @@ using AppCommand = std::variant<
     AddOECommand,
     DeleteOECommand,
     ProcessHistogramCommand,
-    RunStatisticalTestCommand
+    RunStatisticalTestCommand,
+    FindPassingDecimationCommand
 >;
 
 class CommandQueue {

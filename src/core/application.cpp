@@ -7,6 +7,7 @@
 
 #include "config.h"
 #include "application.h"
+#include "../data/find_first_passing_decimation/find_first_passing_decimation.h"
 
 namespace fs = std::filesystem;
 
@@ -82,34 +83,69 @@ void Application::Update() {
                     }
                 );
             } else if constexpr (std::is_same_v<T, RunStatisticalTestCommand>) {
-                GetThreadPool().Enqueue([this, cmd = command] {
+                auto& oe = currentProject.operationalEnvironments[command.oeIndex];
+
+                // Determine which histogram/sub-histogram to start the timer on
+                BaseHistogram* histPtr = nullptr;
+                if (command.subHistIndex == 0) {
+                    histPtr = &oe.heuristicData.mainHistogram;
+                } else {
+                    // regionIndex > 0 corresponds to sub-histogram at index regionIndex-1
+                    histPtr = &oe.heuristicData.mainHistogram.subHists[command.subHistIndex - 1];
+                }
+
+                // Start timer here before enqueuing
+                histPtr->StartTestsTimer();
+
+                // Enqueue work
+                GetThreadPool().Enqueue([this, cmd = command, histPtr] {
                     try {
+                        // Convert file
                         lib90b::EntropyInputData entropyData;
                         std::string convertedFile;
+                        dataManager.ConvertDecimalFile(cmd.inputFile, entropyData, convertedFile, cmd.minValue, cmd.maxValue, cmd.subHistIndex);
 
-                        // Convert the decimal file first
-                        if (!dataManager.ConvertDecimalFile(
-                                cmd.inputFile,        // input decimal file
-                                entropyData,          // entropyData to fill
-                                convertedFile,        // resulting binary file path
-                                cmd.minValue,         // optional min
-                                cmd.maxValue,         // optional max
-                                cmd.regionIndex))     // optional region index
-                        {
-                            uiManager.PushNotification("Failed to convert file for statistical tests.", 5.0f, ImVec4(1,0,0,1));
-                            return;
-                        }
-
-                        // Now run the non-IID test on the converted binary file
+                        // Run the test
                         auto results = lib90b::nonIidTestSuite(convertedFile);
 
-                        if (cmd.output) {
-                            *cmd.output = results;
-                        }
+                        // Store results
+                        if (cmd.output) *cmd.output = results;
+                        histPtr->entropyResults = results;
+
+                        // Stop timer after work completes
+                        histPtr->StopTestsTimer();
 
                         uiManager.PushNotification("Statistical tests completed.", 3.0f, ImVec4(0,1,0,1));
                     } catch (const std::exception& e) {
+                        histPtr->StopTestsTimer();
                         uiManager.PushNotification(std::string("Test failed: ") + e.what(), 5.0f, ImVec4(1,0,0,1));
+                    }
+                });
+            } else if constexpr (std::is_same_v<T, FindPassingDecimationCommand>) {
+                auto& oe = currentProject.operationalEnvironments[command.oeIndex];
+
+                GetThreadPool().Enqueue([this, cmd = command] {
+                    try {
+                        // Get reference to the OE
+                        auto& oe = currentProject.operationalEnvironments[cmd.oeIndex];
+
+                        // Start timer here in main thread
+                        oe.heuristicData.mainHistogram.StartDecimationTimer();
+
+                        // Run the decimation function
+                        std::string result = findFirstPassingDecimation(cmd.inputFile);
+
+                        // Write the result
+                        if (cmd.output) {
+                            *cmd.output = result;
+                        }
+
+                        oe.heuristicData.mainHistogram.firstPassingDecimationResult = result;
+                        oe.heuristicData.mainHistogram.StopDecimationTimer();
+
+                        uiManager.PushNotification("Find Passing Decimation completed.", 3.0f, ImVec4(0,1,0,1));
+                    } catch (const std::exception& e) {
+                        uiManager.PushNotification(std::string("Decimation failed: ") + e.what(), 5.0f, ImVec4(1,0,0,1));
                     }
                 });
             }

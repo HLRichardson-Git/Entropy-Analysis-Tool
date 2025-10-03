@@ -30,12 +30,27 @@ struct BaseHistogram {
     
     bool testsRunning = false;
     std::chrono::steady_clock::time_point startTime;
+
+    void StartTestsTimer() {
+        testsRunning = true;
+        startTime = std::chrono::steady_clock::now();
+    }
+
+    void StopTestsTimer() {
+        testsRunning = false;
+    }
+
+    double GetElapsedTestsSeconds() const {
+        if (!testsRunning) return 0.0;
+        auto now = std::chrono::steady_clock::now();
+        return std::chrono::duration<double>(now - startTime).count();
+    }
 };
 
 struct SubHistogram : public BaseHistogram {
     ImPlotRect rect;
     ImVec4 color;
-    int regionIndex = 0;
+    int subHistIndex = 0;
 };
 
 struct MainHistogram : public BaseHistogram {
@@ -44,6 +59,24 @@ struct MainHistogram : public BaseHistogram {
     std::filesystem::path convertedFilePath;
 
     std::vector<SubHistogram> subHists;
+
+    bool decimationRunning = false;
+    std::chrono::steady_clock::time_point decimationStartTime;
+
+    void StartDecimationTimer() {
+        decimationRunning = true;
+        decimationStartTime = std::chrono::steady_clock::now();
+    }
+
+    void StopDecimationTimer() {
+        decimationRunning = false;
+    }
+
+    double GetElapsedDecimationSeconds() const {
+        if (!decimationRunning) return 0.0;
+        auto now = std::chrono::steady_clock::now();
+        return std::chrono::duration<double>(now - decimationStartTime).count();
+    }
 };
 
 struct HeuristicData {

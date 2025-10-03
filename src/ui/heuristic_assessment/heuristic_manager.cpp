@@ -1,6 +1,5 @@
 
 #include "heuristic_manager.h"
-#include "../../data/find_first_passing_decimation/find_first_passing_decimation.h"
 
 #include <algorithm>
 
@@ -22,7 +21,7 @@ void HeuristicManager::Render() {
     if (!m_currentProject) return;
 
     float fullWidth = ImGui::GetContentRegionAvail().x;
-    float sidebarWidth = 250.0f;
+    float sidebarWidth = 220.0f;
     float mainWidth = fullWidth - sidebarWidth;
 
     auto oe = GetSelectedOE();
@@ -86,20 +85,28 @@ void HeuristicManager::Render() {
             unsigned int maxValue = mainHist.maxValue;
             sub.rect = ImPlotRect(minValue, maxValue, 0, 100);
 
+            // Compute initial sub-histogram metadata from rect
+            sub.minValue = static_cast<unsigned int>(sub.rect.X.Min);
+            sub.maxValue = static_cast<unsigned int>(sub.rect.X.Max);
+
+            int subBinCount = std::max(1, static_cast<int>((sub.maxValue - sub.minValue) / mainHist.binWidth));
+            sub.binWidth = static_cast<double>(sub.maxValue - sub.minValue) / subBinCount;
+
+            // Color & index
             static const std::vector<ImVec4> defaultColors = {
-                ImVec4(0.840f, 0.283f, 0.283f, 0.25f),
-                ImVec4(0.6f, 0.95f, 0.6f, 0.25f),
-                ImVec4(0.95f, 0.95f, 0.6f, 0.25f),
-                ImVec4(0.6f, 0.6f, 0.95f, 0.25f),
-                ImVec4(0.95f, 0.6f, 0.95f, 0.25f),
-                ImVec4(0.6f, 0.95f, 0.95f, 0.25f),
-                ImVec4(0.95f, 0.683f, 0.221f, 0.25f),
+                ImVec4(0.840f, 0.283f, 0.283f, 0.25f), // Red
+                ImVec4(0.6f, 0.95f, 0.6f, 0.25f),      // Green
+                ImVec4(0.95f, 0.95f, 0.6f, 0.25f),     // Yellow
+                ImVec4(0.6f, 0.6f, 0.95f, 0.25f),      // Blue
+                ImVec4(0.95f, 0.6f, 0.95f, 0.25f),     // Magenta
+                ImVec4(0.6f, 0.95f, 0.95f, 0.25f),     // Cyan
+                ImVec4(0.95f, 0.683f, 0.221f, 0.25f),  // Orange
             };
             static size_t nextColorIndex = 0;
             sub.color = defaultColors[nextColorIndex % defaultColors.size()];
             nextColorIndex++;
+            sub.subHistIndex = static_cast<int>(subHists.size()) + 1;
 
-            sub.regionIndex = static_cast<int>(subHists.size()) + 1;
             mainHist.subHists.push_back(std::move(sub));
         }
         ImGui::EndDisabled();
@@ -131,13 +138,13 @@ void HeuristicManager::Render() {
         ImGui::SameLine();
         ImGui::SetCursorPosX(startX);
 
-        ImGui::PushFont(Config::fontH3);
+        ImGui::PushFont(Config::fontH3_Bold);
 
         // Run Statistical Tests (main)
-        ImGui::PushStyleColor(ImGuiCol_Button,        Config::MINT_BUTTON.normal);
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::MINT_BUTTON.hovered);
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::MINT_BUTTON.active);
-        ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_DARK_CHARCOAL);
+        ImGui::PushStyleColor(ImGuiCol_Button,        Config::GREEN_BUTTON.normal);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::GREEN_BUTTON.hovered);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREEN_BUTTON.active);
+        ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_LIGHT_GREY);
         {
             std::string runStatisticalTestButton = std::string(reinterpret_cast<const char*>(u8"\uf83e")) + "  Run Statistical Tests";
             if (ImGui::Button(runStatisticalTestButton.c_str(), statisticalTestSize)) {
@@ -148,11 +155,12 @@ void HeuristicManager::Render() {
 
                 if (m_onCommand) {
                     m_onCommand(RunStatisticalTestCommand{
+                        m_uiState->selectedOEIndex,
+                        0, // Main Histogram Index is `0`
                         oe->heuristicData.mainHistogram.heuristicFilePath.string(),
                         std::shared_ptr<lib90b::NonIidResult>(&oe->heuristicData.mainHistogram.entropyResults, [](lib90b::NonIidResult*){}),
                         std::nullopt,
-                        std::nullopt,
-                        0
+                        std::nullopt
                     });
                 }
             }
@@ -162,18 +170,25 @@ void HeuristicManager::Render() {
         ImGui::SameLine(0, spacing);
 
         // Find Passing Decimation
-        ImGui::PushStyleColor(ImGuiCol_Button,        Config::WHITE_BUTTON.normal);
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::WHITE_BUTTON.hovered);
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::WHITE_BUTTON.active);
-        ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_DARK_CHARCOAL);
+        ImGui::PushStyleColor(ImGuiCol_Button,        Config::RED_BUTTON.normal);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::RED_BUTTON.hovered);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::RED_BUTTON.active);
+        ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_LIGHT_GREY);
         {
-            std::string extraButton = std::string(reinterpret_cast<const char*>(u8"\uf12d")) + "  Find Passing Decimation";
-            if (ImGui::Button(extraButton.c_str(), findFirstDecimationSize)) {
+            std::string findFirstPassingDecimationButton = std::string(reinterpret_cast<const char*>(u8"\uf12d")) + "  Find Passing Decimation";
+            if (ImGui::Button(findFirstPassingDecimationButton.c_str(), findFirstDecimationSize)) {
                 const fs::path convertedFilePath = oe->heuristicData.mainHistogram.convertedFilePath;
-                if (!convertedFilePath.empty() && fs::exists(convertedFilePath)) {
-                    oe->heuristicData.mainHistogram.firstPassingDecimationResult = findFirstPassingDecimation(convertedFilePath);
-                } else {
+                if (convertedFilePath.empty() || !fs::exists(convertedFilePath)) {
                     std::cout << "Invalid file path or file does not exist: " << convertedFilePath << std::endl;
+                    return;
+                }
+
+                if (m_onCommand) {
+                    m_onCommand(FindPassingDecimationCommand{
+                        m_uiState->selectedOEIndex,
+                        convertedFilePath,
+                        std::make_shared<std::string>()  // output will be set in the thread
+                    });
                 }
             }
         }
@@ -257,7 +272,7 @@ void HeuristicManager::Render() {
             ImGui::BulletText("Min Entropy: %.6f bits", res.min_entropy.value());
         } else if (hist.testsRunning) {
             float t = std::chrono::duration<float>(std::chrono::steady_clock::now() - hist.startTime).count();
-            ImGui::Text("Running tests %.1fs %c", t, "|/-\\"[static_cast<int>(t*4) % 4]);
+            ImGui::BulletText("Running tests %.1fs %c", t, "|/-\\"[static_cast<int>(t*4) % 4]);
         } else {
             ImGui::BulletText("Non-IID results not available");
         }
@@ -267,6 +282,9 @@ void HeuristicManager::Render() {
         ImGui::Text("First Passing Decimation Result:");
         if (!hist.firstPassingDecimationResult.empty()) {
             ImGui::BulletText("Result: %s", hist.firstPassingDecimationResult.c_str());
+        } else if (hist.decimationRunning) {
+            float t = std::chrono::duration<float>(std::chrono::steady_clock::now() - hist.decimationStartTime).count();
+            ImGui::BulletText("Running tests %.1fs %c", t, "|/-\\"[static_cast<int>(t*4) % 4]);
         } else {
             ImGui::BulletText("Result: Not yet ran.");
         }
@@ -314,7 +332,7 @@ void HeuristicManager::Render() {
                 // Left column: metadata + buttons
                 ImGui::BeginChild(("SubMeta_" + std::to_string(i)).c_str(), ImVec2(sidebarWidth - 10.0f, -1), false);
                 {
-                    std::string regionTitle = "Region " + std::to_string(sub.regionIndex);
+                    std::string regionTitle = "Region " + std::to_string(sub.subHistIndex);
 
                     ImGui::PushFont(Config::fontH3_Bold);
                     ImGui::Text(regionTitle.c_str());
@@ -333,22 +351,20 @@ void HeuristicManager::Render() {
                     ImGui::PushFont(Config::normal);
 
                     // Run Test (for this sub-histogram)
-                    ImGui::PushStyleColor(ImGuiCol_Button,        Config::MINT_BUTTON.normal);
-                    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::MINT_BUTTON.hovered);
-                    ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::MINT_BUTTON.active);
-                    ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_DARK_CHARCOAL);
+                    ImGui::PushStyleColor(ImGuiCol_Button,        Config::GREEN_BUTTON.normal);
+                    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::GREEN_BUTTON.hovered);
+                    ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREEN_BUTTON.active);
+                    ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_LIGHT_GREY);
                     {
                         if (ImGui::Button(std::string(reinterpret_cast<const char*>(u8"\uf83e")).c_str())) {
-                            sub.testsRunning = true;
-                            sub.startTime = std::chrono::steady_clock::now();
-
                             if (m_onCommand) {
                                 m_onCommand(RunStatisticalTestCommand{
+                                    m_uiState->selectedOEIndex,
+                                    sub.subHistIndex,
                                     oe->heuristicData.mainHistogram.heuristicFilePath.string(),
                                     std::shared_ptr<lib90b::NonIidResult>(&sub.entropyResults, [](lib90b::NonIidResult*){}),
                                     sub.rect.X.Min,
-                                    sub.rect.X.Max,
-                                    sub.regionIndex
+                                    sub.rect.X.Max
                                 });
                             }
                         }
@@ -389,7 +405,7 @@ void HeuristicManager::Render() {
                         ImGui::BulletText("Min Entropy: %.6f bits", res.min_entropy.value());
                     } else if (sub.testsRunning) {
                         float t = std::chrono::duration<float>(std::chrono::steady_clock::now() - sub.startTime).count();
-                        ImGui::Text("Running %.1fs %c", t, "|/-\\"[static_cast<int>(t*4) % 4]);
+                        ImGui::BulletText("Running %.1fs %c", t, "|/-\\"[static_cast<int>(t*4) % 4]);
                     } else {
                         ImGui::BulletText("Non-IID results not available");
                     }
