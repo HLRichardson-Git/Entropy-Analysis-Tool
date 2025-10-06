@@ -91,6 +91,8 @@ struct OperationalEnvironment {
 };
 
 struct Project {
+    std::string vendor;
+    std::string repo;
     std::string name;
     std::string path;
 

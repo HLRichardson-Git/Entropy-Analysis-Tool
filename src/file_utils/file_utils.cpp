@@ -2,12 +2,16 @@
 #include "file_utils.h"
 
 void from_json(const json& j, Project& p) {
+    j.at("vendor").get_to(p.vendor);
+    j.at("repo").get_to(p.repo);
     j.at("projectName").get_to(p.name);
     j.at("projectPath").get_to(p.path);
 }
 
 void to_json(json& j, const Project& p) {
     j = json{
+        {"vendor", p.vendor},
+        {"repo", p.repo},
         {"projectName", p.name},
         {"projectPath", p.path}
     };

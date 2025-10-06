@@ -87,6 +87,8 @@ fs::path DataManager::NewProject(const std::string& vendor, const std::string& r
     fs::path projectJsonPath = projectDir / "project.json";
 
     nlohmann::json projectTemplate;
+    projectTemplate["vendor"] = vendor;
+    projectTemplate["repo"] = repo;
     projectTemplate["name"] = projectName;
     projectTemplate["path"] = fs::relative(projectDir, fs::current_path()).string();
     projectTemplate["currentTabIndex"] = 0;
@@ -124,6 +126,8 @@ Project DataManager::LoadProject(const std::string& filename) {
     }
 
     // Project name
+    proj.vendor = j.value("vendor", fullPath.stem().string());
+    proj.repo = j.value("repo", fullPath.stem().string());
     proj.name = j.value("name", fullPath.stem().string());
     proj.path = fullPath.parent_path().string();
 
@@ -251,6 +255,8 @@ void DataManager::SaveProject(Project& project, Config::AppConfig& appConfig) {
 
     // Build JSON template similar to NewProject
     nlohmann::json projectJson;
+    projectJson["vendor"] = project.vendor;
+    projectJson["repo"] = project.repo;
     projectJson["name"] = project.name;
     projectJson["path"] = fs::relative(projectDir, fs::current_path()).string();
     projectJson["currentTabIndex"] = 0;
@@ -283,6 +289,8 @@ void DataManager::SaveProject(Project& project, Config::AppConfig& appConfig) {
 
     if (it == appConfig.savedProjects.end()) {
         appConfig.savedProjects.push_back(project);
+    } else {
+        *it = project; // ensure vendor/repo are up-to-date
     }
 
     // Persist app.json

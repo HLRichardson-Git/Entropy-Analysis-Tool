@@ -535,34 +535,46 @@ NewProjectFormResult UIManager::RenderNewProjectPopup() {
 LoadProjectFormResult UIManager::RenderLoadProjectPopup() {
     LoadProjectFormResult result;
 
-    // Keep calling OpenPopup every frame until modal is shown
     if (uiState.loadProjectPopupOpen) {
         ImGui::OpenPopup("Load Project");
     }
 
+    static bool projectSelected = false;
+    static std::string selectedPath;
+
     if (ImGui::BeginPopupModal("Load Project", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::Text("Select a Project:");
 
-        // List saved projects in a selectable list
-        static int selectedIndex = 0;
-        for (int i = 0; i < m_config->savedProjects.size(); i++) {
-            bool isSelected = (selectedIndex == i);
-            if (ImGui::Selectable(m_config->savedProjects[i].name.c_str(), isSelected)) {
-                selectedIndex = i;
-            }
-            if (isSelected) ImGui::SetItemDefaultFocus();
+        // Build vendor → repo → project hierarchy
+        std::map<std::string, std::map<std::string, std::vector<int>>> projectHierarchy;
+        for (int i = 0; i < m_config->savedProjects.size(); ++i) {
+            const auto& proj = m_config->savedProjects[i];
+            projectHierarchy[proj.vendor][proj.repo].push_back(i);
         }
 
-        if (ImGui::Button("Load")) {
-            if (!m_config->savedProjects.empty()) {
-                result.submitted = true;
-                result.filePath = m_config->savedProjects[selectedIndex].path + "\\project.json";
+        // Render tree view
+        for (auto& [vendor, repos] : projectHierarchy) {
+            if (ImGui::TreeNode(vendor.c_str())) {
+                for (auto& [repo, indices] : repos) {
+                    if (ImGui::TreeNode(repo.c_str())) {
+                        for (int i : indices) {
+                            const auto& proj = m_config->savedProjects[i];
+                            if (ImGui::Selectable(proj.name.c_str())) {
+                                projectSelected = true;
+                                selectedPath = proj.path + "\\project.json";
+                            }
+
+                            if (ImGui::IsItemHovered())
+                                ImGui::SetTooltip("%s", proj.path.c_str());
+                        }
+                        ImGui::TreePop();
+                    }
+                }
+                ImGui::TreePop();
             }
-            ImGui::CloseCurrentPopup();
-            uiState.loadProjectPopupOpen = false;
         }
 
-        ImGui::SameLine();
+        ImGui::Separator();
         if (ImGui::Button("Cancel")) {
             result.submitted = false;
             ImGui::CloseCurrentPopup();
@@ -570,6 +582,15 @@ LoadProjectFormResult UIManager::RenderLoadProjectPopup() {
         }
 
         ImGui::EndPopup();
+    }
+
+    // Handle load *after* UI cleanup
+    if (projectSelected) {
+        result.submitted = true;
+        result.filePath = selectedPath;
+        projectSelected = false;
+        ImGui::CloseCurrentPopup();
+        uiState.loadProjectPopupOpen = false;
     }
 
     return result;
