@@ -229,7 +229,7 @@ void UIManager::RenderSidebar() {
     ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREY_BUTTON.active);
     ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_DARK_CHARCOAL);
     {
-        std::string runAnalysisButton = std::string(reinterpret_cast<const char*>(u8"\uf04b")) + "  Run Analysis";
+        std::string runAnalysisButton = std::string(reinterpret_cast<const char*>(u8"\uf04b")) + "  Run Batch Analysis";
         if (ImGui::Button(runAnalysisButton.c_str(), runAnalysisButtonSize)) {
             if (uiState.activeTab == Tabs::StatisticalAssessment) {
                 // TODO: Add logic for doing bath analysis when we have implemented statistical analysis

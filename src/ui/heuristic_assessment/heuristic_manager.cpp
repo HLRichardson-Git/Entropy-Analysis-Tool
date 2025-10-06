@@ -265,11 +265,36 @@ void HeuristicManager::Render() {
         ImGui::Text("Main Histogram Non-IID results:");
         if (hist.entropyResults.min_entropy.has_value()) {
             const auto& res = hist.entropyResults;
-            if (res.H_original.has_value()) ImGui::BulletText("H_original: %.6f bits", res.H_original.value());
-            ImGui::SameLine();
-            if (res.H_bitstring.has_value()) ImGui::BulletText("H_bitstring: %.6f bits", res.H_bitstring.value());
-            ImGui::SameLine();
-            ImGui::BulletText("Min Entropy: %.6f bits", res.min_entropy.value());
+
+            if (res.H_original.has_value()) {
+                ImGui::TextDisabled("(H_original)");
+                ImGui::SameLine();
+                char buf[32];
+                snprintf(buf, sizeof(buf), "%.6f", res.H_original.value());
+                ImVec2 textSize = ImGui::CalcTextSize(buf);
+                if (ImGui::Selectable(buf, false, 0, textSize)) ImGui::SetClipboardText(buf);
+                ImGui::SameLine();
+            }
+
+            if (res.H_bitstring.has_value()) {
+                ImGui::TextDisabled("(H_bitstring)");
+                ImGui::SameLine();
+                char buf[32];
+                snprintf(buf, sizeof(buf), "%.6f", res.H_bitstring.value());
+                ImVec2 textSize = ImGui::CalcTextSize(buf);
+                if (ImGui::Selectable(buf, false, 0, textSize)) ImGui::SetClipboardText(buf);
+                ImGui::SameLine();
+            }
+
+            {
+                ImGui::TextDisabled("(Min Entropy)");
+                ImGui::SameLine();
+                char buf[32];
+                snprintf(buf, sizeof(buf), "%.6f", res.min_entropy.value());
+                ImVec2 textSize = ImGui::CalcTextSize(buf);
+                if (ImGui::Selectable(buf, false, 0, textSize)) ImGui::SetClipboardText(buf);
+            }
+
         } else if (hist.testsRunning) {
             float t = std::chrono::duration<float>(std::chrono::steady_clock::now() - hist.startTime).count();
             ImGui::BulletText("Running tests %.1fs %c", t, "|/-\\"[static_cast<int>(t*4) % 4]);
@@ -281,12 +306,12 @@ void HeuristicManager::Render() {
 
         ImGui::Text("First Passing Decimation Result:");
         if (!hist.firstPassingDecimationResult.empty()) {
-            ImGui::BulletText("Result: %s", hist.firstPassingDecimationResult.c_str());
+            ImGui::BulletText("%s", hist.firstPassingDecimationResult.c_str());
         } else if (hist.decimationRunning) {
             float t = std::chrono::duration<float>(std::chrono::steady_clock::now() - hist.decimationStartTime).count();
             ImGui::BulletText("Running tests %.1fs %c", t, "|/-\\"[static_cast<int>(t*4) % 4]);
         } else {
-            ImGui::BulletText("Result: Not yet ran.");
+            ImGui::BulletText("Not yet ran.");
         }
 
         ImGui::PopFont();
@@ -400,9 +425,45 @@ void HeuristicManager::Render() {
 
                     if (sub.entropyResults.min_entropy.has_value()) {
                         const auto& res = sub.entropyResults;
-                        if (res.H_original.has_value()) ImGui::BulletText("H_original: %.6f bits", res.H_original.value());
-                        if (res.H_bitstring.has_value()) ImGui::BulletText("H_bitstring: %.6f bits", res.H_bitstring.value());
-                        ImGui::BulletText("Min Entropy: %.6f bits", res.min_entropy.value());
+                        
+                        if (res.H_original.has_value()) {
+                            ImGui::Bullet();
+                            ImGui::SameLine();
+                            ImGui::Text("H_original:");
+                            ImGui::SameLine();
+                            char buf[32];
+                            snprintf(buf, sizeof(buf), "%.6f", res.H_original.value());
+                            ImVec2 textSize = ImGui::CalcTextSize(buf);
+                            if (ImGui::Selectable(buf, false, 0, textSize)) ImGui::SetClipboardText(buf);
+                            ImGui::SameLine();
+                            ImGui::Text("bits");
+                        }
+                        
+                        if (res.H_bitstring.has_value()) {
+                            ImGui::Bullet();
+                            ImGui::SameLine();
+                            ImGui::Text("H_bitstring:");
+                            ImGui::SameLine();
+                            char buf[32];
+                            snprintf(buf, sizeof(buf), "%.6f", res.H_bitstring.value());
+                            ImVec2 textSize = ImGui::CalcTextSize(buf);
+                            if (ImGui::Selectable(buf, false, 0, textSize)) ImGui::SetClipboardText(buf);
+                            ImGui::SameLine();
+                            ImGui::Text("bits");
+                        }
+                        
+                        {
+                            ImGui::Bullet();
+                            ImGui::SameLine();
+                            ImGui::Text("Min Entropy:");
+                            ImGui::SameLine();
+                            char buf[32];
+                            snprintf(buf, sizeof(buf), "%.6f", res.min_entropy.value());
+                            ImVec2 textSize = ImGui::CalcTextSize(buf);
+                            if (ImGui::Selectable(buf, false, 0, textSize)) ImGui::SetClipboardText(buf);
+                            ImGui::SameLine();
+                            ImGui::Text("bits");
+                        }
                     } else if (sub.testsRunning) {
                         float t = std::chrono::duration<float>(std::chrono::steady_clock::now() - sub.startTime).count();
                         ImGui::BulletText("Running %.1fs %c", t, "|/-\\"[static_cast<int>(t*4) % 4]);
