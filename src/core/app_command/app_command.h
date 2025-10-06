@@ -4,6 +4,9 @@
 #include <string>
 #include <variant>
 #include <queue>
+#include <filesystem>
+
+#include <lib90b/non_iid.h>
 
 struct OpenProjectCommand {
     std::string filePath;
@@ -27,12 +30,37 @@ struct DeleteOECommand {
     int oeIndex;
 };
 
+struct ProcessHistogramCommand {
+    int oeIndex;
+};
+
+struct RunStatisticalTestCommand {
+    int oeIndex;
+    int subHistIndex = 0;
+
+    std::filesystem::path inputFile;   
+    std::shared_ptr<lib90b::NonIidResult> output;
+
+    std::optional<double> minValue;
+    std::optional<double> maxValue;
+};
+
+struct FindPassingDecimationCommand {
+    int oeIndex;
+
+    std::filesystem::path inputFile;
+    std::shared_ptr<std::string> output;
+};
+
 using AppCommand = std::variant<
     OpenProjectCommand,
     SaveProjectCommand,
     NewProjectCommand,
     AddOECommand,
-    DeleteOECommand
+    DeleteOECommand,
+    ProcessHistogramCommand,
+    RunStatisticalTestCommand,
+    FindPassingDecimationCommand
 >;
 
 class CommandQueue {

@@ -5,11 +5,16 @@
 #include <memory>
 #include <functional>
 #include <filesystem>
+#include <future>
 
 #include "models.h"
 #include "../core/config.h"
+#include "../core/thread_pool/thread_pool.h"
+#include "histogram/histogram.h"
 
 namespace fs = std::filesystem;
+
+using NotificationCallback = std::function<void(const std::string&, float, ImVec4)>;
 
 class DataManager {
 private:    
@@ -36,4 +41,13 @@ public:
     void SaveProject(Project& project, Config::AppConfig& appConfig);
     void AddOEToProject(Project& project, const std::string& oeName, Config::AppConfig& appConfig);
     void DeleteOE(Project& project, int oeIndex, Config::AppConfig& appConfig);
+
+    // Heuristic
+    void processHistogramForProject(Project& project, int oeIndex, ThreadPool& pool, NotificationCallback notify);
+    bool ConvertDecimalFile(const std::filesystem::path& inputFilePath,
+                            lib90b::EntropyInputData& outData,
+                            std::string& outBinaryFilePath,
+                            std::optional<double> minVal = std::nullopt,
+                            std::optional<double> maxVal = std::nullopt,
+                            int regionIndex = 0);
 };

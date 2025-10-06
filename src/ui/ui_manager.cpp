@@ -9,6 +9,17 @@ bool UIManager::Initialize(DataManager* dataManager, Config::AppConfig* config, 
     m_config = config;
     m_currentProject = project;
     
+    heuristicManager.Initialize(dataManager, config, project, &uiState);
+
+    // Set callbacks so heuristicManager can notify or request actions
+    heuristicManager.SetCommandCallback([this](AppCommand cmd) {
+        commandQueue.Push(std::move(cmd));
+    });
+
+    heuristicManager.SetNotificationCallback([this](const std::string& msg, float duration, ImVec4 color) {
+        PushNotification(msg, duration, color);
+    });
+
     return true;
 }
 
@@ -80,7 +91,7 @@ void UIManager::RenderSidebar() {
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::GREEN_BUTTON.hovered);
     ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREEN_BUTTON.active);
     {
-        std::string newProjectButton = std::string(u8"\uf067") + "  New Project";
+        std::string newProjectButton = std::string(reinterpret_cast<const char*>(u8"\uf067")) + "  New Project";
         if (ImGui::Button(newProjectButton.c_str(), buttonSize)) {
             uiState.newProjectPopupOpen = true;
         }
@@ -91,7 +102,7 @@ void UIManager::RenderSidebar() {
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::ORANGE_BUTTON.hovered);
     ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::ORANGE_BUTTON.active);
     {
-        std::string loadProjectButton = std::string(u8"\uf07c") + "  Load Project";
+        std::string loadProjectButton = std::string(reinterpret_cast<const char*>(u8"\uf07c")) + "  Load Project";
         if (ImGui::Button(loadProjectButton.c_str(), buttonSize)) {
             uiState.loadProjectPopupOpen = true;
         }
@@ -102,7 +113,7 @@ void UIManager::RenderSidebar() {
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::RED_BUTTON.hovered);
     ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::RED_BUTTON.active);
     {
-        std::string saveProjectButton = std::string(u8"\uf0c7") + "  Save Project";
+        std::string saveProjectButton = std::string(reinterpret_cast<const char*>(u8"\uf0c7")) + "  Save Project";
         if (ImGui::Button(saveProjectButton.c_str(), buttonSize)) {
             commandQueue.Push(AppCommand(SaveProjectCommand{}));
             PushNotification("Project saved!", 3.0f, ImVec4(0.0f, 1.0f, 0.0f, 1.0f));
@@ -135,7 +146,7 @@ void UIManager::RenderSidebar() {
 
         ImGui::SetCursorPosX(iconLeftPadding);
         ImGui::PushFont(Config::fontH3);
-        ImGui::Text(u8"\uf1c0"); // Database icon
+        ImGui::Text(reinterpret_cast<const char*>(u8"\uf1c0")); // Database icon
         ImGui::PopFont();
 
         ImGui::NextColumn();
@@ -179,7 +190,7 @@ void UIManager::RenderSidebar() {
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::PURPLE_BUTTON.hovered);
     ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::PURPLE_BUTTON.active);
     {
-        std::string statisticalButton = std::string(u8"\uf1ec") + "  Statistical";
+        std::string statisticalButton = std::string(reinterpret_cast<const char*>(u8"\uf1ec")) + "  Statistical";
         if (ImGui::Button(statisticalButton.c_str(), projectButtonSize)) {
             uiState.activeTab = Tabs::StatisticalAssessment;
         }
@@ -196,7 +207,7 @@ void UIManager::RenderSidebar() {
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::PURPLE_BUTTON.hovered);
     ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::PURPLE_BUTTON.active);
     {
-        std::string heursiticButton = std::string(u8"\uf1fe") + "  Heuristic";
+        std::string heursiticButton = std::string(reinterpret_cast<const char*>(u8"\uf1fe")) + "  Heuristic";
         if (ImGui::Button(heursiticButton.c_str(), projectButtonSize)) {
             uiState.activeTab = Tabs::HeuristicAssessment;
         }
@@ -205,7 +216,35 @@ void UIManager::RenderSidebar() {
 
     ImGui::PopFont();
 
-    ImGuiSpacing(2);
+    ImGuiSpacing(1);
+
+    /* Run Analysis */
+    ImGui::PushFont(Config::fontH3);
+
+    ImVec2 runAnalysisButtonSize(sidebarWidth, 0);
+
+    // First button: Statistical Assessment
+    ImGui::PushStyleColor(ImGuiCol_Button,        Config::GREY_BUTTON.normal);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::GREY_BUTTON.hovered);
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREY_BUTTON.active);
+    ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_DARK_CHARCOAL);
+    {
+        std::string runAnalysisButton = std::string(reinterpret_cast<const char*>(u8"\uf04b")) + "  Run Batch Analysis";
+        if (ImGui::Button(runAnalysisButton.c_str(), runAnalysisButtonSize)) {
+            if (uiState.activeTab == Tabs::StatisticalAssessment) {
+                // TODO: Add logic for doing bath analysis when we have implemented statistical analysis
+            }
+            else if (uiState.activeTab == Tabs::HeuristicAssessment) {
+                // TODO: Add logic for doing bath analysis for the heuristic data
+                heuristicManager.m_showBatchPopup = true;
+            }
+        }
+    }    
+    ImGui::PopStyleColor(4);
+
+    ImGui::PopFont();
+
+    ImGuiSpacing(1);
 
     /* Operational Environments */
     ImGui::PushFont(Config::fontH3_Bold);
@@ -233,7 +272,7 @@ void UIManager::RenderSidebar() {
             ImVec2 prevAlign = style.ButtonTextAlign;
 
             style.ButtonTextAlign = ImVec2(0.0f, 0.5f); // Set text to left aligned
-            std::string oeNameButton = std::string(u8"\uf2db") + " " + oe.oeName;
+            std::string oeNameButton = std::string(reinterpret_cast<const char*>(u8"\uf2db")) + " " + oe.oeName;
             if (ImGui::Button(oeNameButton.c_str(), ImVec2(oeButtonWidth, oeButtonHeight))) {
                 uiState.selectedOEIndex = (int)i;
             }
@@ -260,7 +299,7 @@ void UIManager::RenderSidebar() {
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::GREEN_BUTTON.hovered);
     ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREEN_BUTTON.active);
     {
-        std::string addOEButton = std::string(u8"\uf067"); // '+' icon
+        std::string addOEButton = std::string(reinterpret_cast<const char*>(u8"\uf067")); // '+' icon
         if (ImGui::Button(addOEButton.c_str(), addOEButtonSize)) {
             uiState.addOEPopupOpen = true;
         }
@@ -275,7 +314,7 @@ void UIManager::RenderSidebar() {
     ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_DARK_CHARCOAL);
     {
         ImGui::BeginDisabled(uiState.selectedOEIndex < 0);
-        std::string cogButton = std::string(u8"\uf013"); // cog icon
+        std::string cogButton = std::string(reinterpret_cast<const char*>(u8"\uf013")); // cog icon
         if (ImGui::Button(cogButton.c_str(), cogButtonSize)) {
             if (uiState.selectedOEIndex >= 0) {
                 uiState.editOEPopupOpen = true;
@@ -293,10 +332,10 @@ void UIManager::RenderSidebar() {
 void UIManager::RenderMainContent() {
     switch (uiState.activeTab) {
         case Tabs::StatisticalAssessment:
-            ImGui::Text("This is Page A");
+            ImGui::Text("Statistical Assessment Page");
             break;
         case Tabs::HeuristicAssessment:
-            ImGui::Text("This is Page B");
+            heuristicManager.Render();
             break;
     }
 }
@@ -496,34 +535,46 @@ NewProjectFormResult UIManager::RenderNewProjectPopup() {
 LoadProjectFormResult UIManager::RenderLoadProjectPopup() {
     LoadProjectFormResult result;
 
-    // Keep calling OpenPopup every frame until modal is shown
     if (uiState.loadProjectPopupOpen) {
         ImGui::OpenPopup("Load Project");
     }
 
+    static bool projectSelected = false;
+    static std::string selectedPath;
+
     if (ImGui::BeginPopupModal("Load Project", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::Text("Select a Project:");
 
-        // List saved projects in a selectable list
-        static int selectedIndex = 0;
-        for (int i = 0; i < m_config->savedProjects.size(); i++) {
-            bool isSelected = (selectedIndex == i);
-            if (ImGui::Selectable(m_config->savedProjects[i].name.c_str(), isSelected)) {
-                selectedIndex = i;
-            }
-            if (isSelected) ImGui::SetItemDefaultFocus();
+        // Build vendor → repo → project hierarchy
+        std::map<std::string, std::map<std::string, std::vector<int>>> projectHierarchy;
+        for (int i = 0; i < m_config->savedProjects.size(); ++i) {
+            const auto& proj = m_config->savedProjects[i];
+            projectHierarchy[proj.vendor][proj.repo].push_back(i);
         }
 
-        if (ImGui::Button("Load")) {
-            if (!m_config->savedProjects.empty()) {
-                result.submitted = true;
-                result.filePath = m_config->savedProjects[selectedIndex].path;
+        // Render tree view
+        for (auto& [vendor, repos] : projectHierarchy) {
+            if (ImGui::TreeNode(vendor.c_str())) {
+                for (auto& [repo, indices] : repos) {
+                    if (ImGui::TreeNode(repo.c_str())) {
+                        for (int i : indices) {
+                            const auto& proj = m_config->savedProjects[i];
+                            if (ImGui::Selectable(proj.name.c_str())) {
+                                projectSelected = true;
+                                selectedPath = proj.path + "\\project.json";
+                            }
+
+                            if (ImGui::IsItemHovered())
+                                ImGui::SetTooltip("%s", proj.path.c_str());
+                        }
+                        ImGui::TreePop();
+                    }
+                }
+                ImGui::TreePop();
             }
-            ImGui::CloseCurrentPopup();
-            uiState.loadProjectPopupOpen = false;
         }
 
-        ImGui::SameLine();
+        ImGui::Separator();
         if (ImGui::Button("Cancel")) {
             result.submitted = false;
             ImGui::CloseCurrentPopup();
@@ -531,6 +582,15 @@ LoadProjectFormResult UIManager::RenderLoadProjectPopup() {
         }
 
         ImGui::EndPopup();
+    }
+
+    // Handle load *after* UI cleanup
+    if (projectSelected) {
+        result.submitted = true;
+        result.filePath = selectedPath;
+        projectSelected = false;
+        ImGui::CloseCurrentPopup();
+        uiState.loadProjectPopupOpen = false;
     }
 
     return result;
@@ -626,7 +686,7 @@ EditOEFormResult UIManager::RenderEditOEPopup() {
         ImGui::PushStyleColor(ImGuiCol_Button,        Config::GREEN_BUTTON.normal);
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::GREEN_BUTTON.hovered);
         ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREEN_BUTTON.active);
-        if (ImGui::Button((std::string(u8"\uf0c7 ") + "Save").c_str(), ImVec2(buttonWidth, 0))) {
+        if (ImGui::Button((std::string(reinterpret_cast<const char*>(u8"\uf0c7")) + " Save").c_str(), ImVec2(buttonWidth, 0))) {
             result.submitted = true;
             result.newName = std::string(oeNameBuffer);
             ImGui::CloseCurrentPopup();
@@ -642,7 +702,7 @@ EditOEFormResult UIManager::RenderEditOEPopup() {
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::GREY_BUTTON.hovered);
         ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREY_BUTTON.active);
         ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_DARK_CHARCOAL);
-        if (ImGui::Button((std::string(u8"\uf00d ") + "Cancel").c_str(), ImVec2(buttonWidth, 0))) {
+        if (ImGui::Button((std::string(reinterpret_cast<const char*>(u8"\uf00d")) + " Cancel").c_str(), ImVec2(buttonWidth, 0))) {
             result.submitted = false;
             ImGui::CloseCurrentPopup();
             uiState.editOEPopupOpen = false;
@@ -657,7 +717,7 @@ EditOEFormResult UIManager::RenderEditOEPopup() {
         ImGui::PushStyleColor(ImGuiCol_Button,        Config::RED_BUTTON.normal);
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::RED_BUTTON.hovered);
         ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::RED_BUTTON.active);
-        if (ImGui::Button((std::string(u8"\uf1f8 ") + "Delete").c_str(), ImVec2(buttonWidth, 0))) {
+        if (ImGui::Button((std::string(reinterpret_cast<const char*>(u8"\uf1f8")) + " Delete").c_str(), ImVec2(buttonWidth, 0))) {
             confirmDeleteOEPopupOpen = true;
             ImGui::OpenPopup("Confirm Delete OE");
         }
@@ -668,7 +728,7 @@ EditOEFormResult UIManager::RenderEditOEPopup() {
             ImGui::SetNextWindowSize(ImVec2(420, 0), ImGuiCond_Appearing);
             if (ImGui::BeginPopupModal("Confirm Delete OE", nullptr, ImGuiWindowFlags_NoResize)) {
                 ImGui::PushFont(Config::fontH3_Bold);
-                ImGui::TextColored(ImVec4(0.8f, 0.1f, 0.1f, 1.0f), (std::string(u8"\uf1f8 ") + "Delete OE?").c_str());
+                ImGui::TextColored(ImVec4(0.8f, 0.1f, 0.1f, 1.0f), (std::string(reinterpret_cast<const char*>(u8"\uf1f8")) + " Delete OE?").c_str());
                 ImGui::PopFont();
 
                 ImGui::Spacing();

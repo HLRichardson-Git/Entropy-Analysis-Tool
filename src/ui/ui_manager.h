@@ -5,6 +5,7 @@
 #include <memory>
 
 #include "../data/data_manager.h"
+#include "heuristic_assessment/heuristic_manager.h"
 #include "../core/types.h"
 #include "../core/app_command/app_command.h"
 
@@ -18,6 +19,8 @@ private:
     CommandQueue& commandQueue;
     std::vector<Notification> notifications;
 
+    HeuristicManager heuristicManager;
+
     // Main Content
     void RenderMainWindow();
     void RenderSidebar();
@@ -27,8 +30,7 @@ private:
     void RenderMenuBar();
     void RenderHelpWindow();
 
-    // Notifications
-    void PushNotification(const std::string& msg, float duration = 3.0f, ImVec4 color = ImVec4(1,1,1,1));
+    //Notifications
     void RenderNotifications();
 
     // Popups
@@ -51,4 +53,7 @@ public:
 
     // Utility
     void OnProjectChanged(Project project);
+
+    // Notifications
+    void PushNotification(const std::string& msg, float duration = 3.0f, ImVec4 color = ImVec4(1,1,1,1));
 };
