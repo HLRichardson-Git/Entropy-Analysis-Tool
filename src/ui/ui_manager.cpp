@@ -216,7 +216,35 @@ void UIManager::RenderSidebar() {
 
     ImGui::PopFont();
 
-    ImGuiSpacing(2);
+    ImGuiSpacing(1);
+
+    /* Run Analysis */
+    ImGui::PushFont(Config::fontH3);
+
+    ImVec2 runAnalysisButtonSize(sidebarWidth, 0);
+
+    // First button: Statistical Assessment
+    ImGui::PushStyleColor(ImGuiCol_Button,        Config::GREY_BUTTON.normal);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::GREY_BUTTON.hovered);
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREY_BUTTON.active);
+    ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_DARK_CHARCOAL);
+    {
+        std::string runAnalysisButton = std::string(reinterpret_cast<const char*>(u8"\uf04b")) + "  Run Analysis";
+        if (ImGui::Button(runAnalysisButton.c_str(), runAnalysisButtonSize)) {
+            if (uiState.activeTab == Tabs::StatisticalAssessment) {
+                // TODO: Add logic for doing bath analysis when we have implemented statistical analysis
+            }
+            else if (uiState.activeTab == Tabs::HeuristicAssessment) {
+                // TODO: Add logic for doing bath analysis for the heuristic data
+                heuristicManager.m_showBatchPopup = true;
+            }
+        }
+    }    
+    ImGui::PopStyleColor(4);
+
+    ImGui::PopFont();
+
+    ImGuiSpacing(1);
 
     /* Operational Environments */
     ImGui::PushFont(Config::fontH3_Bold);

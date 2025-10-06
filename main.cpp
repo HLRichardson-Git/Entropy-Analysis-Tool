@@ -43,6 +43,14 @@ int main() {
             
             // Start ImGui frame
             StartImGuiFrame();
+
+            // Check for zero display size to prevent ImGui crash on minimized window
+            ImVec2 display_size = ImGui::GetIO().DisplaySize;
+            if (display_size.x <= 0.0f || display_size.y <= 0.0f) {
+                // Skip rendering this frame
+                PresentFrame(); // Optional: might still need to call this for the swap chain
+                continue;
+            }
             
             // Update and render application
             try {

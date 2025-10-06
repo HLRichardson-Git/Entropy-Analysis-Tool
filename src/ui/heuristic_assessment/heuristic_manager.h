@@ -30,6 +30,7 @@ private:
 
     // Popups
     void RenderPopups();
+    void RenderUploadSectionForOE(OperationalEnvironment* oe);
     void RenderMainHistogramConfigPopup();
 
 public:
@@ -39,6 +40,9 @@ public:
     
     bool Initialize(DataManager* dataManager, Config::AppConfig* config, Project* project, UIState* uiState);
     void Render();
+
+    bool m_showBatchPopup = false;
+    void RenderBatchHeuristic();
 
     void SetCommandCallback(CommandCallback cb) { m_onCommand = cb; };
     void SetNotificationCallback(NotificationCallback cb) { m_onNotification = cb; }

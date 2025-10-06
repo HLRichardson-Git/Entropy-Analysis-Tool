@@ -455,6 +455,56 @@ OperationalEnvironment* HeuristicManager::GetSelectedOE() {
 void HeuristicManager::RenderPopups() { 
     if (m_editHistogramPopupOpen) {
         RenderMainHistogramConfigPopup();
+    } else if (m_showBatchPopup) {
+        RenderBatchHeuristic();
+    }
+}
+
+void HeuristicManager::RenderUploadSectionForOE(OperationalEnvironment* oe)
+{
+    if (!oe) return;
+
+    // create a unique id for this OE (pointer-based)
+    std::string idSuffix = std::to_string(reinterpret_cast<uintptr_t>(oe)); // stable for this run
+    std::string dlgId = std::string("HistogramFileDlg_") + idSuffix;
+    std::string buttonLabel = std::string("Load Raw Samples##") + idSuffix; // '##' hides uniqueness from UI
+
+    // Call FileSelector with unique id / label:
+    // Adjust these args to your FileSelector signature. In your earlier code you used:
+    // FileSelector("HistogramFileDlg", "Load Raw Samples", ".data,.bin,.txt,.*")
+    // So pass dialog id and a unique label:
+    if (auto file = FileSelector(dlgId.c_str(), buttonLabel.c_str(), ".data,.bin,.txt,.*"))
+    {
+        fs::path destDir = fs::path(m_currentProject->path) / oe->oePath;
+        // ensure destination dir exists
+        std::error_code ec;
+        fs::create_directories(destDir, ec);
+        if (ec) {
+            // optional: show error
+            ImGui::TextColored(ImVec4(1,0.3f,0.3f,1), "Failed to create dest dir: %s", ec.message().c_str());
+        } else {
+            if (auto dest = CopyFileToDirectory(*file, destDir)) {
+                oe->heuristicData.mainHistogram.heuristicFilePath = dest->string(); // success
+            } else {
+                ImGui::TextColored(ImVec4(1,0.3f,0.3f,1), "Failed to copy file for %s", oe->oeName.c_str());
+            }
+        }
+    }
+
+    ImGui::SameLine();
+
+    // display uploaded file path or placeholder
+    if (!oe->heuristicData.mainHistogram.heuristicFilePath.empty()) {
+        fs::path filePath(oe->heuristicData.mainHistogram.heuristicFilePath);
+        std::string filename = filePath.filename().string();
+        ImGui::TextWrapped("Current file: %s", filename.c_str());
+        if (ImGui::IsItemHovered()) {
+            ImGui::BeginTooltip();
+            ImGui::TextUnformatted(oe->heuristicData.mainHistogram.heuristicFilePath.string().c_str());
+            ImGui::EndTooltip();
+        }
+    } else {
+        ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "No file loaded for this OE");
     }
 }
 
@@ -475,27 +525,7 @@ void HeuristicManager::RenderMainHistogramConfigPopup() {
         ImGui::Text(editMainHeuristicTitle.c_str());
 
         // File selection — store in mainHistogram
-        if (auto file = FileSelector("HistogramFileDlg", "Load Raw Samples", ".data,.bin,.txt,.*")) {
-            fs::path destDir = fs::path(m_currentProject->path) / oe->oePath;
-            if (auto dest = CopyFileToDirectory(*file, destDir)) {
-                oe->heuristicData.mainHistogram.heuristicFilePath = dest->string();
-            }
-        }
-        ImGui::SameLine();
-
-        // Show copied file path
-        if (!oe->heuristicData.mainHistogram.heuristicFilePath.empty()) {
-            fs::path filePath(oe->heuristicData.mainHistogram.heuristicFilePath);
-            std::string filename = filePath.filename().string();
-            ImGui::TextWrapped("Current file: %s", filename.c_str());
-            if (ImGui::IsItemHovered()) {
-                ImGui::BeginTooltip();
-                ImGui::TextUnformatted(oe->heuristicData.mainHistogram.heuristicFilePath.string().c_str());
-                ImGui::EndTooltip();
-            }
-        } else {
-            ImGui::TextColored(ImVec4(0.6f,0.6f,0.6f,1.0f), "No file loaded for this OE");
-        }
+        RenderUploadSectionForOE(oe);
 
         if (ImGui::Button("Process uploaded file")) {
             if (m_onCommand) {
@@ -525,6 +555,186 @@ void HeuristicManager::RenderMainHistogramConfigPopup() {
             ImGui::CloseCurrentPopup();
             m_editHistogramPopupOpen = false;
         }
+
+        ImGui::EndPopup();
+    }
+}
+
+void HeuristicManager::RenderBatchHeuristic() {
+    if (m_showBatchPopup)
+        ImGui::OpenPopup("Batch Heuristic Analysis");
+
+    if (ImGui::BeginPopupModal("Batch Heuristic Analysis", NULL)) {
+        static int currentStep = 0; // 0 = upload, 1 = process, 2 = run
+        static bool stepCompleted[3] = { false, false, false };
+
+        ImGui::PushFont(Config::fontH2_Bold);
+        ImGui::Text("Batch Heuristic Analysis");
+        ImGui::PopFont();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        ImGui::PushFont(Config::fontH3);
+
+        // Step indicators
+        const char* stepNames[3] = { "1. Upload Samples", "2. Convert to Histograms", "3. Run Statistical Tests" };
+        ImGui::Text("Progress:");
+        for (int i = 0; i < 3; ++i) {
+            if (i == currentStep)
+                ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_PURPLE);
+            else if (stepCompleted[i])
+                ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_GREEN);
+            else
+                ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_DARK_CHARCOAL);
+
+            ImGui::BulletText("%s", stepNames[i]);
+            ImGui::PopStyleColor();
+        }
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        // Step 1: Upload files
+        if (currentStep == 0) {
+            ImGui::Text("Step 1: Upload raw sample files for each OE.");
+            ImGui::Separator();
+            ImGui::Spacing();
+
+            for (auto& oe : m_currentProject->operationalEnvironments) {
+                ImGui::PushID(oe.oeName.c_str());
+                ImGui::Text("%s", oe.oeName.c_str());
+                ImGui::SameLine();
+                RenderUploadSectionForOE(&oe);
+                ImGui::PopID();
+                ImGui::Separator();
+            }
+
+            // Automatically validate uploads before allowing "Next"
+            bool allUploaded = std::all_of(
+                m_currentProject->operationalEnvironments.begin(),
+                m_currentProject->operationalEnvironments.end(),
+                [](const auto& oe) {
+                    return !oe.heuristicData.mainHistogram.heuristicFilePath.empty();
+                }
+            );
+
+            stepCompleted[0] = allUploaded;
+
+            if (!allUploaded && ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Please upload files for all OEs before proceeding.");
+            }
+
+            // Missing file popup (only shown if user tries to skip manually)
+            if (ImGui::BeginPopupModal("Missing Files", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
+                ImGui::Text("Please upload files for all Operational Environments before continuing.");
+                if (ImGui::Button("OK", ImVec2(120, 0))) {
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::EndPopup();
+            }
+        }
+
+        // Step 2: Convert to histograms
+        else if (currentStep == 1) {
+            ImGui::Text("Step 2: Convert raw data into histograms.");
+            ImGui::TextWrapped("This will preprocess all uploaded files into histogram form for analysis.");
+
+            // Check if all OEs already have converted files
+            bool allConverted = std::all_of(
+                m_currentProject->operationalEnvironments.begin(),
+                m_currentProject->operationalEnvironments.end(),
+                [](const auto& oe) {
+                    return !oe.heuristicData.mainHistogram.convertedFilePath.empty();
+                }
+            );
+
+            stepCompleted[1] = allConverted; // if true, "Next" can be clicked immediately
+
+            if (ImGui::Button("Process Files", ImVec2(200, 0))) {
+                if (m_onCommand) {
+                    // Loop through all Operational Environments
+                    for (size_t i = 0; i < m_currentProject->operationalEnvironments.size(); ++i) {
+                        auto& oe = m_currentProject->operationalEnvironments[i];
+                        auto& hist = oe.heuristicData.mainHistogram;
+
+                        // Only process if convertedFilePath is not set but heuristicFilePath is available
+                        if (hist.convertedFilePath.empty() && !hist.heuristicFilePath.empty()) {
+                            m_onCommand(ProcessHistogramCommand{ static_cast<int>(i) });
+                        }
+                    }
+                }
+
+                stepCompleted[1] = true; // mark step as complete after issuing commands
+            }
+        }
+
+        // Step 3: Run statistical tests
+        else if (currentStep == 2) {
+            ImGui::Text("Step 3: Run statistical tests on generated histograms.");
+            ImGui::TextWrapped("Runs the non-IID test suite on all processed data sets.");
+
+            ImVec2 runStatisticalTestSize(200, 0);
+
+            if (ImGui::Button("Run Analysis", runStatisticalTestSize)) {
+                if (m_onCommand) {
+                    for (size_t i = 0; i < m_currentProject->operationalEnvironments.size(); ++i) {
+                        auto& oe = m_currentProject->operationalEnvironments[i];
+                        auto& hist = oe.heuristicData.mainHistogram;
+
+                        // Only run tests if we have a converted file
+                        if (!hist.convertedFilePath.empty()) {
+                            hist.testsRunning = true;
+                            hist.startTime = std::chrono::steady_clock::now();
+
+                            m_onCommand(RunStatisticalTestCommand{
+                                static_cast<int>(i),          // OE index
+                                0,                            // Main Histogram index
+                                hist.heuristicFilePath.string(),
+                                std::shared_ptr<lib90b::NonIidResult>(
+                                    &hist.entropyResults,
+                                    [](lib90b::NonIidResult*){}), // shared_ptr wrapper
+                                std::nullopt,                 // label (optional)
+                                std::nullopt                  // additional params
+                            });
+                        }
+                    }
+                }
+
+                stepCompleted[2] = true; // mark step as complete
+            }
+        }
+
+        ImGui::Spacing();
+        ImGui::Separator();
+
+        // Navigation buttons
+        ImGui::BeginDisabled(currentStep == 0);
+        std::string backButton = std::string(reinterpret_cast<const char*>(u8"\uf060")) + "  Back";
+        if (ImGui::Button(backButton.c_str(), ImVec2(100, 0))) {
+            if (currentStep > 0) currentStep--;
+        }
+        ImGui::EndDisabled();
+
+        ImGui::SameLine();
+
+        ImGui::BeginDisabled(!stepCompleted[currentStep] || currentStep >= 2);
+        std::string nextButton = std::string(reinterpret_cast<const char*>(u8"\uf061")) + "  Next";
+        if (ImGui::Button(nextButton.c_str(), ImVec2(100, 0))) {
+            if (currentStep < 2) currentStep++;
+        }
+        ImGui::EndDisabled();
+
+        ImGui::SameLine();
+
+        if (ImGui::Button("Close", ImVec2(100, 0))) {
+            ImGui::CloseCurrentPopup();
+            m_showBatchPopup = false;
+            currentStep = 0;
+            memset(stepCompleted, 0, sizeof(stepCompleted));
+        }
+
+        ImGui::PopFont();
 
         ImGui::EndPopup();
     }
