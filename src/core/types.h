@@ -18,6 +18,11 @@ enum class Tabs {
     HeuristicAssessment
 };
 
+struct StatisticData {
+    std::filesystem::path nonIidSampleFilePath;
+    std::filesystem::path restartSampleFilePath;
+};
+
 struct BaseHistogram {
     static constexpr int binCount = 1500;
     unsigned int minValue = 0;
@@ -87,6 +92,7 @@ struct OperationalEnvironment {
     std::string oeName;
     std::string oePath;
 
+    StatisticData statisticData;
     HeuristicData heuristicData;
 };
 

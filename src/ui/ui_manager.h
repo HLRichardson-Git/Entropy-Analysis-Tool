@@ -6,6 +6,7 @@
 
 #include "../data/data_manager.h"
 #include "heuristic_assessment/heuristic_manager.h"
+#include "statistic_assessment/statistic_manager.h"
 #include "../core/types.h"
 #include "../core/app_command/app_command.h"
 
@@ -19,6 +20,7 @@ private:
     CommandQueue& commandQueue;
     std::vector<Notification> notifications;
 
+    StatisticManager statisticManager;
     HeuristicManager heuristicManager;
 
     // Main Content
