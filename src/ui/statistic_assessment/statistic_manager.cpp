@@ -1,8 +1,9 @@
 
+#include <algorithm>
+#include <optional>
 
 #include "statistic_manager.h"
-
-#include <algorithm>
+#include "../../file_utils/file_utils.h"
 
 bool StatisticManager::Initialize(DataManager* dataManager, Config::AppConfig* config, Project* project, UIState* uiState) {
     m_dataManager = dataManager;
@@ -54,89 +55,31 @@ void StatisticManager::Render() {
         ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREEN_BUTTON.active);
         ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_LIGHT_GREY);
         {
-            ImGui::BeginDisabled(oe->statisticData.nonIidSampleFilePath.empty());
+            ImGui::BeginDisabled(oe->statisticData.nonIidSampleFilePath.empty() || oe->statisticData.nonIidTestRunning);
             std::string runStatisticalTestButton = std::string(reinterpret_cast<const char*>(u8"\uf83e")) + "  Run Non-IID Test Suite";
             if (ImGui::Button(runStatisticalTestButton.c_str(), statisticalTestSize)) {
-                if (oe->statisticData.nonIidSampleFilePath.empty()) return;
-
-                /*oe->heuristicData.mainHistogram.testsRunning = true;
-                oe->heuristicData.mainHistogram.startTime = std::chrono::steady_clock::now();
-
                 if (m_onCommand) {
-                    m_onCommand(RunStatisticalTestCommand{
-                        m_uiState->selectedOEIndex,
-                        0, // Main Histogram Index is `0`
-                        oe->heuristicData.mainHistogram.heuristicFilePath.string(),
-                        std::shared_ptr<lib90b::NonIidResult>(&oe->heuristicData.mainHistogram.entropyResults, [](lib90b::NonIidResult*){}),
-                        std::nullopt,
-                        std::nullopt
+                    m_onCommand(RunNonIidTestCommand{
+                        m_uiState->selectedOEIndex
                     });
-                }*/
+                }
             }
             ImGui::EndDisabled();
         }
         ImGui::PopStyleColor(4);
         ImGui::PopFont();
 
+        if (oe->statisticData.nonIidTestRunning) {
+            ImGui::SameLine();
+            ImGui::PushFont(Config::normal);
+            float t = std::chrono::duration<float>(std::chrono::steady_clock::now() - oe->statisticData.nonIidStartTime).count();
+            ImGui::Text("Running test %.1fs %c", t, "|/-\\"[static_cast<int>(t*4) % 4]);
+            ImGui::PopFont();
+        }
+
         ImGui::Dummy(ImVec2(0.0f, 2 * ImGui::GetStyle().ItemSpacing.y));
 
-        // Summary/Full Output Button selector
-        float padding = ImGui::GetStyle().ItemSpacing.x;
-        float projectButtonWidth = (mainWidth - padding) * 0.5f;
-        ImVec2 projectButtonSize(projectButtonWidth, 0);
-
-        ImGui::PushFont(Config::fontH3);
-
-        bool isSummaryActive = (nonIidTab == StatisticTabs::Summary);
-        ImVec4 summaryColor = isSummaryActive ? Config::GREY_BUTTON.normal : Config::LIGHT_BACKGROUND_COLOR;
-        ImVec4 summaryHoveredColor = isSummaryActive ? Config::GREY_BUTTON.normal : summaryColor;
-        ImVec4 summaryFontColor = isSummaryActive ? Config::TEXT_DARK_CHARCOAL : Config::TEXT_LIGHT_GREY;
-
-        // First button: Summary
-        ImGui::PushStyleColor(ImGuiCol_Button,        summaryColor);
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, summaryHoveredColor);
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREY_BUTTON.normal);
-        ImGui::PushStyleColor(ImGuiCol_Text, summaryFontColor);
-        {
-            if (ImGui::Button("Summary", projectButtonSize)) {
-                nonIidTab = StatisticTabs::Summary;
-            }
-        }    
-        ImGui::PopStyleColor(4);
-
-        ImGui::SameLine(0, padding);
-
-        // Second button: Full Output
-        bool isFullOutputActive = (nonIidTab == StatisticTabs::FullOutput);
-        ImVec4 fullOutColor = isFullOutputActive ? Config::GREY_BUTTON.normal : Config::LIGHT_BACKGROUND_COLOR;
-        ImVec4 fullOutHoveredColor = isFullOutputActive ? Config::GREY_BUTTON.normal : fullOutColor;
-        ImVec4 fullOutFontColor = isFullOutputActive ? Config::TEXT_DARK_CHARCOAL : Config::TEXT_LIGHT_GREY;
-
-        ImGui::PushStyleColor(ImGuiCol_Button,        fullOutColor);
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, fullOutHoveredColor);
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREY_BUTTON.normal);
-        ImGui::PushStyleColor(ImGuiCol_Text, fullOutFontColor);
-        {
-            if (ImGui::Button("Full Output", projectButtonSize)) {
-                nonIidTab = StatisticTabs::FullOutput;
-            }
-        }    
-        ImGui::PopStyleColor(4);
-
-        ImGui::PopFont();
-
-        std::string resultText = "";
-
-        switch (nonIidTab) {
-            case StatisticTabs::Summary:
-                resultText = "Summary";
-
-                break;
-            case StatisticTabs::FullOutput:
-                resultText = "Full Output";
-
-                break;
-        }
+        std::string resultText = (oe->statisticData.nonIidResult == "") ? "No Result Yet" : oe->statisticData.nonIidResult;
 
         ImGui::PushFont(Config::normal);
         ImGui::InputTextMultiline(
@@ -163,7 +106,53 @@ void StatisticManager::Render() {
 
         ImGui::Dummy(ImVec2(0.0f, 4 * ImGui::GetStyle().ItemSpacing.y));
 
-        RenderUploadSectionForOE(oe);
+        //RenderUploadSectionForOE(oe);
+        // create a unique id for this OE
+        std::string idSuffix = std::to_string(reinterpret_cast<uintptr_t>(oe));
+        std::string dlgId = std::string("StatisticRestartFileDlg_") + idSuffix;
+        std::string buttonLabel = std::string("Load Raw Samples##") + idSuffix;
+
+        // Call FileSelector with unique id / label:
+        ImGui::PushFont(Config::normal);
+        if (auto file = FileSelector(dlgId.c_str(), buttonLabel.c_str(), ".bin,.txt,.data,.*")) {
+            fs::path destDir = fs::path(m_currentProject->path) / oe->oePath;
+            // ensure destination dir exists
+            std::error_code ec;
+            fs::create_directories(destDir, ec);
+            if (ec) {
+                ImGui::TextColored(ImVec4(1,0.3f,0.3f,1), "Failed to create dest dir: %s", ec.message().c_str());
+            } else {
+                if (auto dest = CopyFileToDirectory(*file, destDir)) {
+                    oe->statisticData.restartSampleFilePath = dest->string(); // success
+                } else {
+                    ImGui::TextColored(ImVec4(1,0.3f,0.3f,1), "Failed to copy file for %s", oe->oeName.c_str());
+                }
+            }
+        }
+
+        ImGui::SameLine();
+
+        // display uploaded file path or placeholder
+        if (!oe->statisticData.restartSampleFilePath.empty()) {
+            fs::path filePath(oe->statisticData.restartSampleFilePath);
+            std::string filename = filePath.filename().string();
+            ImGui::TextWrapped("Current file: %s", filename.c_str());
+            if (ImGui::IsItemHovered()) {
+                ImGui::BeginTooltip();
+                ImGui::TextUnformatted(oe->statisticData.restartSampleFilePath.string().c_str());
+                ImGui::EndTooltip();
+            }
+        } else {
+            ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "No file loaded for this OE");
+        }
+        ImGui::PopFont();
+
+        ImGui::PushFont(Config::normal);
+        ImGui::Text("Input Min Entropy: ");
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(150);
+        ImGui::InputDouble("##MinEntropy", &oe->statisticData.minEntropy);
+        ImGui::PopFont();
 
         // Run Statistical Tests (main)
         ImGui::PushFont(Config::fontH3_Bold);
@@ -174,88 +163,31 @@ void StatisticManager::Render() {
         ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREEN_BUTTON.active);
         ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_LIGHT_GREY);
         {
-            ImGui::BeginDisabled(oe->statisticData.restartSampleFilePath.empty());
+            ImGui::BeginDisabled(oe->statisticData.restartSampleFilePath.empty() || oe->statisticData.restartTestRunning);
             std::string runStatisticalTestButton = std::string(reinterpret_cast<const char*>(u8"\uf83e")) + "  Run Restart Test Suite";
             if (ImGui::Button(runStatisticalTestButton.c_str(), statisticalTestSize)) {
-
-                /*oe->heuristicData.mainHistogram.testsRunning = true;
-                oe->heuristicData.mainHistogram.startTime = std::chrono::steady_clock::now();
-
                 if (m_onCommand) {
-                    m_onCommand(RunStatisticalTestCommand{
-                        m_uiState->selectedOEIndex,
-                        0, // Main Histogram Index is `0`
-                        oe->heuristicData.mainHistogram.heuristicFilePath.string(),
-                        std::shared_ptr<lib90b::NonIidResult>(&oe->heuristicData.mainHistogram.entropyResults, [](lib90b::NonIidResult*){}),
-                        std::nullopt,
-                        std::nullopt
+                    m_onCommand(RunRestartTestCommand{
+                        m_uiState->selectedOEIndex
                     });
-                }*/
+                }
             }
             ImGui::EndDisabled();
         }
         ImGui::PopStyleColor(4);
         ImGui::PopFont();
 
+        if (oe->statisticData.restartTestRunning) {
+            ImGui::SameLine();
+            ImGui::PushFont(Config::normal);
+            float t = std::chrono::duration<float>(std::chrono::steady_clock::now() - oe->statisticData.restartStartTime).count();
+            ImGui::Text("Running test %.1fs %c", t, "|/-\\"[static_cast<int>(t*4) % 4]);
+            ImGui::PopFont();
+        }
+
         ImGui::Dummy(ImVec2(0.0f, 2 * ImGui::GetStyle().ItemSpacing.y));
 
-        // Summary/Full Output Button selector
-        float padding = ImGui::GetStyle().ItemSpacing.x;
-        float projectButtonWidth = (mainWidth - padding) * 0.5f;
-        ImVec2 projectButtonSize(projectButtonWidth, 0);
-
-        ImGui::PushFont(Config::fontH3);
-
-        bool isSummaryActive = (restartTab == StatisticTabs::Summary);
-        ImVec4 summaryColor = isSummaryActive ? Config::GREY_BUTTON.normal : Config::LIGHT_BACKGROUND_COLOR;
-        ImVec4 summaryHoveredColor = isSummaryActive ? Config::GREY_BUTTON.normal : summaryColor;
-        ImVec4 summaryFontColor = isSummaryActive ? Config::TEXT_DARK_CHARCOAL : Config::TEXT_LIGHT_GREY;
-
-        // First button: Summary
-        ImGui::PushStyleColor(ImGuiCol_Button,        summaryColor);
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, summaryHoveredColor);
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREY_BUTTON.normal);
-        ImGui::PushStyleColor(ImGuiCol_Text, summaryFontColor);
-        {
-            if (ImGui::Button("Summary", projectButtonSize)) {
-                restartTab = StatisticTabs::Summary;
-            }
-        }    
-        ImGui::PopStyleColor(4);
-
-        ImGui::SameLine(0, padding);
-
-        // Second button: Full Output
-        bool isFullOutputActive = (restartTab == StatisticTabs::FullOutput);
-        ImVec4 fullOutColor = isFullOutputActive ? Config::GREY_BUTTON.normal : Config::LIGHT_BACKGROUND_COLOR;
-        ImVec4 fullOutHoveredColor = isFullOutputActive ? Config::GREY_BUTTON.normal : fullOutColor;
-        ImVec4 fullOutFontColor = isFullOutputActive ? Config::TEXT_DARK_CHARCOAL : Config::TEXT_LIGHT_GREY;
-
-        ImGui::PushStyleColor(ImGuiCol_Button,        fullOutColor);
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, fullOutHoveredColor);
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREY_BUTTON.normal);
-        ImGui::PushStyleColor(ImGuiCol_Text, fullOutFontColor);
-        {
-            if (ImGui::Button("Full Output", projectButtonSize)) {
-                restartTab = StatisticTabs::FullOutput;
-            }
-        }    
-        ImGui::PopStyleColor(4);
-
-        ImGui::PopFont();
-
-        std::string resultText = "";
-
-        switch (restartTab) {
-            case StatisticTabs::Summary:
-                resultText = "Summary";
-
-                break;
-            case StatisticTabs::FullOutput:
-                resultText = "Full Output";
-
-                break;
-        }
+        std::string resultText = (oe->statisticData.restartResult == "") ? "No Result Yet" : oe->statisticData.restartResult;
 
         ImGui::PushFont(Config::normal);
         ImGui::InputTextMultiline(
@@ -297,7 +229,7 @@ void StatisticManager::RenderUploadSectionForOE(OperationalEnvironment* oe) {
 
     // Call FileSelector with unique id / label:
     ImGui::PushFont(Config::normal);
-    if (auto file = FileSelector(dlgId.c_str(), buttonLabel.c_str(), ".data,.bin,.txt,.*")) {
+    if (auto file = FileSelector(dlgId.c_str(), buttonLabel.c_str(), ".bin,.txt,.data,.*")) {
         fs::path destDir = fs::path(m_currentProject->path) / oe->oePath;
         // ensure destination dir exists
         std::error_code ec;

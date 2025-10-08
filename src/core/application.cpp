@@ -121,6 +121,65 @@ void Application::Update() {
                         uiManager.PushNotification(std::string("Test failed: ") + e.what(), 5.0f, ImVec4(1,0,0,1));
                     }
                 });
+            } else if constexpr (std::is_same_v<T, RunNonIidTestCommand>) {
+                // Enqueue work
+                GetThreadPool().Enqueue([this, cmd = command] {
+                    try {
+                        // Get reference to the OE
+                        auto& oe = currentProject.operationalEnvironments[cmd.oeIndex];
+
+                        std::filesystem::path filepath = oe.statisticData.nonIidSampleFilePath;
+                        std::string linuxPath = toWslCommandPath(filepath);
+                        std::string cmd = "wsl ea_non_iid -v " + linuxPath;
+
+                        oe.statisticData.StartNonIidTestsTimer();
+
+                        std::string output = executeCommand(cmd);
+                        
+                        std::filesystem::path logFile = filepath.parent_path() / "nonIidResult.txt";
+                        writeStringToFile(output, logFile);
+
+                        oe.statisticData.nonIidResult = output;
+                        oe.statisticData.nonIidResultFilePath = logFile;
+
+                        double minEntropy = dataManager.extractMinEntropy(output).value_or(0.0);
+                        oe.statisticData.minEntropy = minEntropy;
+
+                        oe.statisticData.StopNonIidTestsTimer();
+
+                        uiManager.PushNotification("Non-IID test completed.", 3.0f, ImVec4(0,1,0,1));
+                    } catch (const std::exception& e) {
+                        uiManager.PushNotification(std::string("Test failed: ") + e.what(), 5.0f, ImVec4(1,0,0,1));
+                    }
+                });
+            } else if constexpr (std::is_same_v<T, RunRestartTestCommand>) {
+                // Enqueue work
+                GetThreadPool().Enqueue([this, cmd = command] {
+                    try {
+                        // Get reference to the OE
+                        auto& oe = currentProject.operationalEnvironments[cmd.oeIndex];
+
+                        std::filesystem::path filepath = oe.statisticData.restartSampleFilePath;
+                        std::string linuxPath = toWslCommandPath(filepath);
+                        std::string cmd = "wsl ea_restart -nv " + linuxPath + " " + std::to_string(oe.statisticData.minEntropy);
+
+                        oe.statisticData.StartRestartTestsTimer();
+
+                        std::string output = executeCommand(cmd);
+                        
+                        std::filesystem::path logFile = filepath.parent_path() / "restartResult.txt";
+                        writeStringToFile(output, logFile);
+
+                        oe.statisticData.restartResult = output;
+                        oe.statisticData.restartResultFilePath = logFile;
+
+                        oe.statisticData.StopRestartTestsTimer();
+
+                        uiManager.PushNotification("Restart test completed.", 3.0f, ImVec4(0,1,0,1));
+                    } catch (const std::exception& e) {
+                        uiManager.PushNotification(std::string("Test failed: ") + e.what(), 5.0f, ImVec4(1,0,0,1));
+                    }
+                });
             } else if constexpr (std::is_same_v<T, FindPassingDecimationCommand>) {
                 auto& oe = currentProject.operationalEnvironments[command.oeIndex];
 
