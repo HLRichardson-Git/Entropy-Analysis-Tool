@@ -9,11 +9,21 @@ bool UIManager::Initialize(DataManager* dataManager, Config::AppConfig* config, 
     m_config = config;
     m_currentProject = project;
     
+    statisticManager.Initialize(dataManager, config, project, &uiState);
     heuristicManager.Initialize(dataManager, config, project, &uiState);
 
-    // Set callbacks so heuristicManager can notify or request actions
+    // Set callbacks so statisticManager and heuristicManager can notify or request actions
+    statisticManager.SetCommandCallback([this](AppCommand cmd) {
+        commandQueue.Push(std::move(cmd));
+    });
+
     heuristicManager.SetCommandCallback([this](AppCommand cmd) {
         commandQueue.Push(std::move(cmd));
+    });
+
+    // Set callbacks so statisticManager and heuristicManager can send notifications
+    statisticManager.SetNotificationCallback([this](const std::string& msg, float duration, ImVec4 color) {
+        PushNotification(msg, duration, color);
     });
 
     heuristicManager.SetNotificationCallback([this](const std::string& msg, float duration, ImVec4 color) {
@@ -332,7 +342,7 @@ void UIManager::RenderSidebar() {
 void UIManager::RenderMainContent() {
     switch (uiState.activeTab) {
         case Tabs::StatisticalAssessment:
-            ImGui::Text("Statistical Assessment Page");
+            statisticManager.Render();
             break;
         case Tabs::HeuristicAssessment:
             heuristicManager.Render();

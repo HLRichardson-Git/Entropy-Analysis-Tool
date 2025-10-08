@@ -6,6 +6,7 @@
 #include <functional>
 #include <filesystem>
 #include <future>
+#include <optional>
 
 #include "models.h"
 #include "../core/config.h"
@@ -41,6 +42,9 @@ public:
     void SaveProject(Project& project, Config::AppConfig& appConfig);
     void AddOEToProject(Project& project, const std::string& oeName, Config::AppConfig& appConfig);
     void DeleteOE(Project& project, int oeIndex, Config::AppConfig& appConfig);
+
+    // Statistic
+    std::optional<double> extractMinEntropy(const std::string& rawResultsOutput);
 
     // Heuristic
     void processHistogramForProject(Project& project, int oeIndex, ThreadPool& pool, NotificationCallback notify);

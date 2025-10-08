@@ -38,9 +38,19 @@ std::optional<std::string> FileSelector(
     const std::string& initialPath
 ) {
     ImGui::BeginGroup();
-    if (ImGui::Button(buttonLabel.c_str())) {
-        ImGuiFileDialog::Instance()->OpenDialog(dialogKey.c_str(), "Select File", fileFilters.c_str());
+    ImGui::PushFont(Config::fontH3);
+    ImGui::PushStyleColor(ImGuiCol_Button,        Config::GREY_BUTTON.normal);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::GREY_BUTTON.hovered);
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREY_BUTTON.active);
+    ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_DARK_CHARCOAL);
+    {
+        std::string buttonLabelWithIcon = std::string(reinterpret_cast<const char*>(u8"\uf574")) + " " + buttonLabel;
+        if (ImGui::Button(buttonLabelWithIcon.c_str())) {
+            ImGuiFileDialog::Instance()->OpenDialog(dialogKey.c_str(), "Select File", fileFilters.c_str());
+        }
     }
+    ImGui::PopStyleColor(4);
+    ImGui::PopFont();
     ImGui::EndGroup();
 
     if (ImGuiFileDialog::Instance()->Display(dialogKey.c_str(), ImGuiWindowFlags_NoCollapse, ImVec2(600, 400))) {

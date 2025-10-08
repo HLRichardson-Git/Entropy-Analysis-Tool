@@ -18,6 +18,43 @@ enum class Tabs {
     HeuristicAssessment
 };
 
+struct StatisticData {
+    std::filesystem::path nonIidSampleFilePath;
+    std::filesystem::path restartSampleFilePath;
+
+    std::filesystem::path nonIidResultFilePath;
+    std::filesystem::path restartResultFilePath;
+
+    std::string nonIidResult = "";
+    std::string restartResult = "";
+
+    double minEntropy = 0.0f;
+
+    bool nonIidTestRunning = false;
+    std::chrono::steady_clock::time_point nonIidStartTime;
+
+    void StartNonIidTestsTimer() {
+        nonIidTestRunning = true;
+        nonIidStartTime = std::chrono::steady_clock::now();
+    }
+
+    void StopNonIidTestsTimer() {
+        nonIidTestRunning = false;
+    }
+
+    bool restartTestRunning = false;
+    std::chrono::steady_clock::time_point restartStartTime;
+
+    void StartRestartTestsTimer() {
+        restartTestRunning = true;
+        restartStartTime = std::chrono::steady_clock::now();
+    }
+
+    void StopRestartTestsTimer() {
+        restartTestRunning = false;
+    }
+};
+
 struct BaseHistogram {
     static constexpr int binCount = 1500;
     unsigned int minValue = 0;
@@ -87,6 +124,7 @@ struct OperationalEnvironment {
     std::string oeName;
     std::string oePath;
 
+    StatisticData statisticData;
     HeuristicData heuristicData;
 };
 

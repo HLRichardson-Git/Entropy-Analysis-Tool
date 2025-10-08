@@ -45,6 +45,14 @@ struct RunStatisticalTestCommand {
     std::optional<double> maxValue;
 };
 
+struct RunNonIidTestCommand {
+    int oeIndex;
+};
+
+struct RunRestartTestCommand {
+    int oeIndex;
+};
+
 struct FindPassingDecimationCommand {
     int oeIndex;
 
@@ -60,6 +68,8 @@ using AppCommand = std::variant<
     DeleteOECommand,
     ProcessHistogramCommand,
     RunStatisticalTestCommand,
+    RunNonIidTestCommand,
+    RunRestartTestCommand,
     FindPassingDecimationCommand
 >;
 

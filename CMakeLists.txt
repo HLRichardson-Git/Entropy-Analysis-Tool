@@ -37,6 +37,7 @@ set (SOURCES
     src/data/find_first_passing_decimation/find_first_passing_decimation.cpp
     src/ui/ui_manager.cpp
     src/ui/heuristic_assessment/heuristic_manager.cpp
+    src/ui/statistic_assessment/statistic_manager.cpp
     src/file_utils/file_utils.cpp
 )
 

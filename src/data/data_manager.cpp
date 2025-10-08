@@ -163,6 +163,40 @@ Project DataManager::LoadProject(const std::string& filename) {
                     continue;
                 }
 
+                if (oeFileJson.contains("statisticData") && oeFileJson["statisticData"].is_object()) {
+                    auto& statisticJson = oeFileJson["statisticData"];
+                    auto& statisticData = oe.statisticData;
+
+                    if (statisticJson.contains("nonIid") && statisticJson["nonIid"].is_object()) {
+                        auto& nonIidJson = statisticJson["nonIid"];
+                        statisticData.nonIidSampleFilePath = nonIidJson.value("nonIidFilePath", "");
+                        statisticData.nonIidResultFilePath = nonIidJson.value("nonIidResultPath", "");
+                        statisticData.minEntropy = nonIidJson.value("minEntropy", 1.0);
+
+                        if (!statisticData.nonIidResultFilePath.empty()) {
+                            auto size = std::filesystem::file_size(statisticData.nonIidResultFilePath);
+                            std::string content(size, '\0');
+                            std::ifstream in(statisticData.nonIidResultFilePath);
+                            in.read(&content[0], size);
+                            statisticData.nonIidResult = content;
+                        }
+                    }
+
+                    if (statisticJson.contains("restart") && statisticJson["restart"].is_object()) {
+                        auto& restartJson = statisticJson["restart"];
+                        statisticData.restartSampleFilePath= restartJson.value("restartFilePath", "");
+                        statisticData.restartResultFilePath = restartJson.value("restartResultPath", "");
+
+                        if (!statisticData.restartResultFilePath.empty()) {
+                            auto size = std::filesystem::file_size(statisticData.restartResultFilePath);
+                            std::string content(size, '\0');
+                            std::ifstream in(statisticData.restartResultFilePath);
+                            in.read(&content[0], size);
+                            statisticData.restartResult = content;
+                        }
+                    }
+                }
+
                 if (oeFileJson.contains("heuristicData") && oeFileJson["heuristicData"].is_object()) {
                     auto& heuristicJson = oeFileJson["heuristicData"];
                     auto& mainHist = oe.heuristicData.mainHistogram;
@@ -503,6 +537,33 @@ void DataManager::UpdateOEsForProject(Project& project) {
         nlohmann::json oeJson;
         oeJson["name"] = oe.oeName;
 
+        nlohmann::json statisticJson;
+        auto& statisticData = oe.statisticData;
+        if (!statisticData.nonIidSampleFilePath.empty()) {
+            nlohmann::json nonIidJson;
+            nonIidJson["nonIidFilePath"] = statisticData.nonIidSampleFilePath;
+
+            if (!statisticData.nonIidResultFilePath.empty()) {
+                nonIidJson["nonIidResultPath"] = statisticData.nonIidResultFilePath;
+                nonIidJson["minEntropy"] = statisticData.minEntropy;
+            }
+
+            statisticJson["nonIid"] = nonIidJson;
+        }
+
+        if (!statisticData.restartSampleFilePath.empty()) {
+            nlohmann::json restartJson;
+            restartJson["restartFilePath"] = statisticData.restartSampleFilePath;
+
+            if (!statisticData.restartResultFilePath.empty()) {
+                restartJson["restartResultPath"] = statisticData.restartResultFilePath;
+            }
+
+            statisticJson["restart"] = restartJson;
+        }
+
+        oeJson["statisticData"] = statisticJson;
+
         nlohmann::json heuristicJson;
         auto& mainHist = oe.heuristicData.mainHistogram;
 
@@ -558,6 +619,22 @@ void DataManager::UpdateOEsForProject(Project& project) {
 
         oe.oePath = fs::relative(newDir, projectDir).string();
     }
+}
+
+// Statistic
+std::optional<double> DataManager::extractMinEntropy(const std::string& rawResultsOutput) {
+    std::regex pattern(R"(min\(H_original, 8 X H_bitstring\):\s*([\d.]+))");
+    std::smatch match;
+
+    if (std::regex_search(rawResultsOutput, match, pattern)) {
+        try {
+            return std::stod(match[1]);
+        } catch (...) {
+            return std::nullopt;
+        }
+    }
+
+    return std::nullopt;
 }
 
 // Heuristic
