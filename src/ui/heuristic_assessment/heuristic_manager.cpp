@@ -574,11 +574,8 @@ void HeuristicManager::RenderMainHistogramConfigPopup() {
         ImGui::OpenPopup("Edit Main Histogram");
     }
 
-    ImVec2 minSize(400, 200);
-    ImVec2 maxSize(FLT_MAX, FLT_MAX);
-    ImGui::SetNextWindowSizeConstraints(minSize, maxSize);
-
-    if (ImGui::BeginPopupModal("Edit Main Histogram", nullptr)) {
+    ImGui::PushFont(Config::normal);
+    if (ImGui::BeginPopupModal("Edit Main Histogram", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
         auto oe = GetSelectedOE();
         if (!oe) { ImGui::EndPopup(); return; }
 
@@ -588,11 +585,15 @@ void HeuristicManager::RenderMainHistogramConfigPopup() {
         // File selection — store in mainHistogram
         RenderUploadSectionForOE(oe);
 
+        ImGui::PushStyleColor(ImGuiCol_Button,        Config::ORANGE_BUTTON.hovered);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::ORANGE_BUTTON.normal);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::ORANGE_BUTTON.active);
         if (ImGui::Button("Process uploaded file")) {
             if (m_onCommand) {
                 m_onCommand(ProcessHistogramCommand{ m_uiState->selectedOEIndex });
             }
         }
+        ImGui::PopStyleColor(3);
 
         ImGui::PushFont(Config::normal);
         ImGui::Separator();
@@ -607,24 +608,29 @@ void HeuristicManager::RenderMainHistogramConfigPopup() {
         ImGui::PopFont();
         ImGui::Separator();
 
-        // Cancel button at bottom
-        ImVec2 windowSize = ImGui::GetWindowSize();
-        ImVec2 buttonSize = ImVec2(120, 0);
-        float bottomY = windowSize.y - ImGui::GetStyle().WindowPadding.y - buttonSize.y - 20.0f;
-        ImGui::SetCursorPosY(bottomY);
-        if (ImGui::Button("Cancel", buttonSize)) {
+        // Cancel button
+        ImGui::PushFont(Config::fontH3);
+        ImGui::PushStyleColor(ImGuiCol_Button,        Config::GREY_BUTTON.normal);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::GREY_BUTTON.hovered);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREY_BUTTON.active);
+        ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_DARK_CHARCOAL);
+        if (ImGui::Button((std::string(reinterpret_cast<const char*>(u8"\uf00d")) + " Cancel").c_str(), ImVec2(120, 0))) {
             ImGui::CloseCurrentPopup();
             m_editHistogramPopupOpen = false;
         }
+        ImGui::PopStyleColor(4);
+        ImGui::PopFont();
 
         ImGui::EndPopup();
     }
+    ImGui::PopFont();
 }
 
 void HeuristicManager::RenderBatchHeuristic() {
     if (m_showBatchPopup)
         ImGui::OpenPopup("Batch Heuristic Analysis");
 
+    ImGui::PushFont(Config::normal);
     if (ImGui::BeginPopupModal("Batch Heuristic Analysis", NULL)) {
         static int currentStep = 0; // 0 = upload, 1 = process, 2 = run
         static bool stepCompleted[3] = { false, false, false };
@@ -788,4 +794,5 @@ void HeuristicManager::RenderBatchHeuristic() {
 
         ImGui::EndPopup();
     }
+    ImGui::PopFont();
 }
