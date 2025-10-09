@@ -56,19 +56,16 @@ void Application::Update() {
                 auto& oe = currentProject.operationalEnvironments[command.oeIndex];
 
                 // 1. Convert decimal file first
-                std::string convertedFile;
                 lib90b::EntropyInputData entropyData;
                 if (!oe.heuristicData.mainHistogram.heuristicFilePath.empty()) {
                     if (!dataManager.ConvertDecimalFile(
-                            oe.heuristicData.mainHistogram.heuristicFilePath, // raw decimal file
-                            entropyData,
-                            convertedFile)) 
+                            oe.heuristicData.mainHistogram.heuristicFilePath,
+                            oe.heuristicData.mainHistogram.convertedFilePath
+                            )) 
                     {
                         uiManager.PushNotification("Failed to convert file for statistical tests.", 5.0f, ImVec4(1,0,0,1));
                         return;
                     }
-
-                    oe.heuristicData.mainHistogram.convertedFilePath = convertedFile;
                 } else {
                     uiManager.PushNotification("No raw file uploaded to convert.", 5.0f, ImVec4(1,0,0,1));
                     return;
@@ -82,70 +79,32 @@ void Application::Update() {
                         uiManager.PushNotification(msg, duration, color);
                     }
                 );
-            } else if constexpr (std::is_same_v<T, RunStatisticalTestCommand>) {
-                auto& oe = currentProject.operationalEnvironments[command.oeIndex];
-
-                // Determine which histogram/sub-histogram to start the timer on
-                BaseHistogram* histPtr = nullptr;
-                if (command.subHistIndex == 0) {
-                    histPtr = &oe.heuristicData.mainHistogram;
-                } else {
-                    // regionIndex > 0 corresponds to sub-histogram at index regionIndex-1
-                    histPtr = &oe.heuristicData.mainHistogram.subHists[command.subHistIndex - 1];
-                }
-
-                // Start timer here before enqueuing
-                histPtr->StartTestsTimer();
-
-                // Enqueue work
-                GetThreadPool().Enqueue([this, cmd = command, histPtr] {
-                    try {
-                        // Convert file
-                        lib90b::EntropyInputData entropyData;
-                        std::string convertedFile;
-                        dataManager.ConvertDecimalFile(cmd.inputFile, entropyData, convertedFile, cmd.minValue, cmd.maxValue, cmd.subHistIndex);
-
-                        // Run the test
-                        auto results = lib90b::nonIidTestSuite(convertedFile);
-
-                        // Store results
-                        if (cmd.output) *cmd.output = results;
-                        histPtr->entropyResults = results;
-
-                        // Stop timer after work completes
-                        histPtr->StopTestsTimer();
-
-                        uiManager.PushNotification("Statistical tests completed.", 3.0f, ImVec4(0,1,0,1));
-                    } catch (const std::exception& e) {
-                        histPtr->StopTestsTimer();
-                        uiManager.PushNotification(std::string("Test failed: ") + e.what(), 5.0f, ImVec4(1,0,0,1));
-                    }
-                });
             } else if constexpr (std::is_same_v<T, RunNonIidTestCommand>) {
                 // Enqueue work
                 GetThreadPool().Enqueue([this, cmd = command] {
                     try {
-                        // Get reference to the OE
-                        auto& oe = currentProject.operationalEnvironments[cmd.oeIndex];
-
-                        std::filesystem::path filepath = oe.statisticData.nonIidSampleFilePath;
+                        std::filesystem::path filepath = cmd.inputFile;
                         std::string linuxPath = toWslCommandPath(filepath);
-                        std::string cmd = "wsl ea_non_iid -v " + linuxPath;
+                        std::string wslCmd = "wsl ea_non_iid -v " + linuxPath;
 
-                        oe.statisticData.StartNonIidTestsTimer();
+                        cmd.testTimer->StartTestsTimer();
 
-                        std::string output = executeCommand(cmd);
+                        std::string output = executeCommand(wslCmd);
                         
-                        std::filesystem::path logFile = filepath.parent_path() / "nonIidResult.txt";
+                        // Prepend input filename (without extension) to result filename
+                        std::string resultFilename = filepath.stem().string() + "_nonIidResult.txt";
+                        std::filesystem::path logFile = filepath.parent_path() / resultFilename;
                         writeStringToFile(output, logFile);
 
-                        oe.statisticData.nonIidResult = output;
-                        oe.statisticData.nonIidResultFilePath = logFile;
+                        *cmd.result = output;
+                        *cmd.outputFile = logFile;
 
-                        double minEntropy = dataManager.extractMinEntropy(output).value_or(0.0);
-                        oe.statisticData.minEntropy = minEntropy;
+                        if (!cmd.nonIidParsedResults->ParseResult(output)) {
+                            // Failed to parse
+                            uiManager.PushNotification("Warning: Could not parse test results", 5.0f, ImVec4(1,0.5,0,1));
+                        }
 
-                        oe.statisticData.StopNonIidTestsTimer();
+                        cmd.testTimer->StopTestsTimer();
 
                         uiManager.PushNotification("Non-IID test completed.", 3.0f, ImVec4(0,1,0,1));
                     } catch (const std::exception& e) {
@@ -156,24 +115,23 @@ void Application::Update() {
                 // Enqueue work
                 GetThreadPool().Enqueue([this, cmd = command] {
                     try {
-                        // Get reference to the OE
-                        auto& oe = currentProject.operationalEnvironments[cmd.oeIndex];
-
-                        std::filesystem::path filepath = oe.statisticData.restartSampleFilePath;
+                        std::filesystem::path filepath = cmd.inputFile;
                         std::string linuxPath = toWslCommandPath(filepath);
-                        std::string cmd = "wsl ea_restart -nv " + linuxPath + " " + std::to_string(oe.statisticData.minEntropy);
+                        std::string wslCmd = "wsl ea_restart -nv " + linuxPath + " " + std::to_string(cmd.minEntropy);
 
-                        oe.statisticData.StartRestartTestsTimer();
+                        cmd.testTimer->StartTestsTimer();
 
-                        std::string output = executeCommand(cmd);
+                        std::string output = executeCommand(wslCmd);
                         
-                        std::filesystem::path logFile = filepath.parent_path() / "restartResult.txt";
+                        // Prepend input filename (without extension) to result filename
+                        std::string resultFilename = filepath.stem().string() + "restartResult.txt";
+                        std::filesystem::path logFile = filepath.parent_path() / resultFilename;
                         writeStringToFile(output, logFile);
 
-                        oe.statisticData.restartResult = output;
-                        oe.statisticData.restartResultFilePath = logFile;
+                        *cmd.result = output;
+                        *cmd.outputFile = logFile;
 
-                        oe.statisticData.StopRestartTestsTimer();
+                        cmd.testTimer->StopTestsTimer();
 
                         uiManager.PushNotification("Restart test completed.", 3.0f, ImVec4(0,1,0,1));
                     } catch (const std::exception& e) {
@@ -189,7 +147,7 @@ void Application::Update() {
                         auto& oe = currentProject.operationalEnvironments[cmd.oeIndex];
 
                         // Start timer here in main thread
-                        oe.heuristicData.mainHistogram.StartDecimationTimer();
+                        cmd.testTimer->StartTestsTimer();
 
                         // Run the decimation function
                         std::string result = findFirstPassingDecimation(cmd.inputFile);
@@ -200,7 +158,7 @@ void Application::Update() {
                         }
 
                         oe.heuristicData.mainHistogram.firstPassingDecimationResult = result;
-                        oe.heuristicData.mainHistogram.StopDecimationTimer();
+                        cmd.testTimer->StopTestsTimer();
 
                         uiManager.PushNotification("Find Passing Decimation completed.", 3.0f, ImVec4(0,1,0,1));
                     } catch (const std::exception& e) {

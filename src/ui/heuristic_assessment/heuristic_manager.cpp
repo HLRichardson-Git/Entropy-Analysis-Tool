@@ -146,20 +146,16 @@ void HeuristicManager::Render() {
         ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREEN_BUTTON.active);
         ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_LIGHT_GREY);
         {
-            ImGui::BeginDisabled(oe->heuristicData.mainHistogram.convertedFilePath.empty() || oe->heuristicData.mainHistogram.testsRunning);
+            ImGui::BeginDisabled(oe->heuristicData.mainHistogram.convertedFilePath.empty() || oe->heuristicData.mainHistogram.testTimer.testRunning);
             std::string runStatisticalTestButton = std::string(reinterpret_cast<const char*>(u8"\uf83e")) + "  Run Statistical Tests";
             if (ImGui::Button(runStatisticalTestButton.c_str(), statisticalTestSize)) {
-                oe->heuristicData.mainHistogram.testsRunning = true;
-                oe->heuristicData.mainHistogram.startTime = std::chrono::steady_clock::now();
-
                 if (m_onCommand) {
-                    m_onCommand(RunStatisticalTestCommand{
-                        m_uiState->selectedOEIndex,
-                        0, // Main Histogram Index is `0`
-                        oe->heuristicData.mainHistogram.heuristicFilePath.string(),
-                        std::shared_ptr<lib90b::NonIidResult>(&oe->heuristicData.mainHistogram.entropyResults, [](lib90b::NonIidResult*){}),
-                        std::nullopt,
-                        std::nullopt
+                    m_onCommand(RunNonIidTestCommand{
+                        oe->heuristicData.mainHistogram.convertedFilePath,
+                        &oe->heuristicData.mainHistogram.nonIidResultFilePath,
+                        &oe->heuristicData.mainHistogram.nonIidResult,
+                        &oe->heuristicData.mainHistogram.nonIidParsedResults,
+                        &oe->heuristicData.mainHistogram.testTimer
                     });
                 }
             }
@@ -175,7 +171,7 @@ void HeuristicManager::Render() {
         ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::RED_BUTTON.active);
         ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_LIGHT_GREY);
         {
-            ImGui::BeginDisabled(oe->heuristicData.mainHistogram.convertedFilePath.empty() || oe->heuristicData.mainHistogram.decimationRunning);
+            ImGui::BeginDisabled(oe->heuristicData.mainHistogram.convertedFilePath.empty() || oe->heuristicData.mainHistogram.decimationTestTimer.testRunning);
             std::string findFirstPassingDecimationButton = std::string(reinterpret_cast<const char*>(u8"\uf12d")) + "  Find Passing Decimation";
             if (ImGui::Button(findFirstPassingDecimationButton.c_str(), findFirstDecimationSize)) {
                 const fs::path convertedFilePath = oe->heuristicData.mainHistogram.convertedFilePath;
@@ -184,7 +180,8 @@ void HeuristicManager::Render() {
                     m_onCommand(FindPassingDecimationCommand{
                         m_uiState->selectedOEIndex,
                         convertedFilePath,
-                        std::make_shared<std::string>()  // output will be set in the thread
+                        std::make_shared<std::string>(),  // output will be set in the thread
+                        &oe->heuristicData.mainHistogram.decimationTestTimer
                     });
                 }
             }
@@ -261,24 +258,24 @@ void HeuristicManager::Render() {
 
         // Main Non-IID results
         ImGui::Text("Main Histogram Non-IID results:");
-        if (hist.entropyResults.min_entropy.has_value()) {
-            const auto& res = hist.entropyResults;
+        if (hist.nonIidParsedResults.minEntropy != 0.0f) {
+            const auto& res = hist.nonIidParsedResults;
 
-            if (res.H_original.has_value()) {
+            if (res.h_original != 0.0f) {
                 ImGui::TextDisabled("(H_original)");
                 ImGui::SameLine();
                 char buf[32];
-                snprintf(buf, sizeof(buf), "%.6f", res.H_original.value());
+                snprintf(buf, sizeof(buf), "%.6f", res.h_original);
                 ImVec2 textSize = ImGui::CalcTextSize(buf);
                 if (ImGui::Selectable(buf, false, 0, textSize)) ImGui::SetClipboardText(buf);
                 ImGui::SameLine();
             }
 
-            if (res.H_bitstring.has_value()) {
+            if (res.h_bitstring != 0.0f) {
                 ImGui::TextDisabled("(H_bitstring)");
                 ImGui::SameLine();
                 char buf[32];
-                snprintf(buf, sizeof(buf), "%.6f", res.H_bitstring.value());
+                snprintf(buf, sizeof(buf), "%.6f", res.h_bitstring);
                 ImVec2 textSize = ImGui::CalcTextSize(buf);
                 if (ImGui::Selectable(buf, false, 0, textSize)) ImGui::SetClipboardText(buf);
                 ImGui::SameLine();
@@ -288,13 +285,13 @@ void HeuristicManager::Render() {
                 ImGui::TextDisabled("(Min Entropy)");
                 ImGui::SameLine();
                 char buf[32];
-                snprintf(buf, sizeof(buf), "%.6f", res.min_entropy.value());
+                snprintf(buf, sizeof(buf), "%.6f", res.minEntropy);
                 ImVec2 textSize = ImGui::CalcTextSize(buf);
                 if (ImGui::Selectable(buf, false, 0, textSize)) ImGui::SetClipboardText(buf);
             }
 
-        } else if (hist.testsRunning) {
-            float t = std::chrono::duration<float>(std::chrono::steady_clock::now() - hist.startTime).count();
+        } else if (hist.testTimer.testRunning) {
+            float t = std::chrono::duration<float>(std::chrono::steady_clock::now() - hist.testTimer.testStartTime).count();
             ImGui::BulletText("Running tests %.1fs %c", t, "|/-\\"[static_cast<int>(t*4) % 4]);
         } else {
             ImGui::BulletText("Non-IID results not available");
@@ -305,8 +302,8 @@ void HeuristicManager::Render() {
         ImGui::Text("First Passing Decimation result:");
         if (!hist.firstPassingDecimationResult.empty()) {
             ImGui::BulletText("%s", hist.firstPassingDecimationResult.c_str());
-        } else if (hist.decimationRunning) {
-            float t = std::chrono::duration<float>(std::chrono::steady_clock::now() - hist.decimationStartTime).count();
+        } else if (hist.decimationTestTimer.testRunning) {
+            float t = std::chrono::duration<float>(std::chrono::steady_clock::now() - hist.decimationTestTimer.testStartTime).count();
             ImGui::BulletText("Running tests %.1fs %c", t, "|/-\\"[static_cast<int>(t*4) % 4]);
         } else {
             ImGui::BulletText("First Passing Decimation results not available");
@@ -380,14 +377,20 @@ void HeuristicManager::Render() {
                     ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_LIGHT_GREY);
                     {
                         if (ImGui::Button(std::string(reinterpret_cast<const char*>(u8"\uf83e")).c_str())) {
+                            std::filesystem::path inputFile = oe->heuristicData.mainHistogram.heuristicFilePath;
+                            std::filesystem::path& convertedFile = sub.nonIidSampleFilePath;
+                            double minValue = sub.rect.X.Min;
+                            double maxValue = sub.rect.X.Max;
+                            int subHistIndex = sub.subHistIndex;
+                            m_dataManager->ConvertDecimalFile(inputFile, convertedFile, minValue, maxValue, subHistIndex);
+
                             if (m_onCommand) {
-                                m_onCommand(RunStatisticalTestCommand{
-                                    m_uiState->selectedOEIndex,
-                                    sub.subHistIndex,
-                                    oe->heuristicData.mainHistogram.heuristicFilePath.string(),
-                                    std::shared_ptr<lib90b::NonIidResult>(&sub.entropyResults, [](lib90b::NonIidResult*){}),
-                                    sub.rect.X.Min,
-                                    sub.rect.X.Max
+                                m_onCommand(RunNonIidTestCommand{
+                                    sub.nonIidSampleFilePath,
+                                    &sub.nonIidResultFilePath,
+                                    &sub.nonIidResult,
+                                    &sub.nonIidParsedResults,
+                                    &sub.testTimer
                                 });
                             }
                         }
@@ -421,29 +424,29 @@ void HeuristicManager::Render() {
                     ImGui::Separator();
                     ImGui::Text("%s Non-IID results:", regionTitle.c_str());
 
-                    if (sub.entropyResults.min_entropy.has_value()) {
-                        const auto& res = sub.entropyResults;
+                    if (sub.nonIidParsedResults.minEntropy != 0.0f) {
+                        const auto& res = sub.nonIidParsedResults;
                         
-                        if (res.H_original.has_value()) {
+                        if (res.h_original != 0.0f) {
                             ImGui::Bullet();
                             ImGui::SameLine();
                             ImGui::Text("H_original:");
                             ImGui::SameLine();
                             char buf[32];
-                            snprintf(buf, sizeof(buf), "%.6f", res.H_original.value());
+                            snprintf(buf, sizeof(buf), "%.6f", res.h_original);
                             ImVec2 textSize = ImGui::CalcTextSize(buf);
                             if (ImGui::Selectable(buf, false, 0, textSize)) ImGui::SetClipboardText(buf);
                             ImGui::SameLine();
                             ImGui::Text("bits");
                         }
                         
-                        if (res.H_bitstring.has_value()) {
+                        if (res.h_bitstring != 0.0f) {
                             ImGui::Bullet();
                             ImGui::SameLine();
                             ImGui::Text("H_bitstring:");
                             ImGui::SameLine();
                             char buf[32];
-                            snprintf(buf, sizeof(buf), "%.6f", res.H_bitstring.value());
+                            snprintf(buf, sizeof(buf), "%.6f", res.h_bitstring);
                             ImVec2 textSize = ImGui::CalcTextSize(buf);
                             if (ImGui::Selectable(buf, false, 0, textSize)) ImGui::SetClipboardText(buf);
                             ImGui::SameLine();
@@ -456,14 +459,14 @@ void HeuristicManager::Render() {
                             ImGui::Text("Min Entropy:");
                             ImGui::SameLine();
                             char buf[32];
-                            snprintf(buf, sizeof(buf), "%.6f", res.min_entropy.value());
+                            snprintf(buf, sizeof(buf), "%.6f", res.minEntropy);
                             ImVec2 textSize = ImGui::CalcTextSize(buf);
                             if (ImGui::Selectable(buf, false, 0, textSize)) ImGui::SetClipboardText(buf);
                             ImGui::SameLine();
                             ImGui::Text("bits");
                         }
-                    } else if (sub.testsRunning) {
-                        float t = std::chrono::duration<float>(std::chrono::steady_clock::now() - sub.startTime).count();
+                    } else if (sub.testTimer.testRunning) {
+                        float t = std::chrono::duration<float>(std::chrono::steady_clock::now() - sub.testTimer.testStartTime).count();
                         ImGui::BulletText("Running %.1fs %c", t, "|/-\\"[static_cast<int>(t*4) % 4]);
                     } else {
                         ImGui::BulletText("Non-IID results not available");
@@ -737,26 +740,15 @@ void HeuristicManager::RenderBatchHeuristic() {
 
             if (ImGui::Button("Run Analysis", runStatisticalTestSize)) {
                 if (m_onCommand) {
-                    for (size_t i = 0; i < m_currentProject->operationalEnvironments.size(); ++i) {
-                        auto& oe = m_currentProject->operationalEnvironments[i];
-                        auto& hist = oe.heuristicData.mainHistogram;
-
-                        // Only run tests if we have a converted file
-                        if (!hist.convertedFilePath.empty()) {
-                            hist.testsRunning = true;
-                            hist.startTime = std::chrono::steady_clock::now();
-
-                            m_onCommand(RunStatisticalTestCommand{
-                                static_cast<int>(i),          // OE index
-                                0,                            // Main Histogram index
-                                hist.heuristicFilePath.string(),
-                                std::shared_ptr<lib90b::NonIidResult>(
-                                    &hist.entropyResults,
-                                    [](lib90b::NonIidResult*){}), // shared_ptr wrapper
-                                std::nullopt,                 // label (optional)
-                                std::nullopt                  // additional params
-                            });
-                        }
+                    // Loop through all Operational Environments
+                    for (auto& oe : m_currentProject->operationalEnvironments) {
+                        m_onCommand(RunNonIidTestCommand{
+                            oe.heuristicData.mainHistogram.convertedFilePath,
+                            &oe.heuristicData.mainHistogram.nonIidResultFilePath,
+                            &oe.heuristicData.mainHistogram.nonIidResult,
+                            &oe.heuristicData.mainHistogram.nonIidParsedResults,
+                            &oe.heuristicData.mainHistogram.testTimer
+                        });
                     }
                 }
 

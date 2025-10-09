@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 #include <filesystem>
+#include <optional>
+#include <regex>
 
 #include <imgui.h>
 #include <implot.h>
@@ -16,6 +18,69 @@
 enum class Tabs {
     StatisticalAssessment,
     HeuristicAssessment
+};
+
+struct TestTimer {
+    bool testRunning = false;
+    std::chrono::steady_clock::time_point testStartTime;
+
+    void StartTestsTimer() {
+        testRunning = true;
+        testStartTime = std::chrono::steady_clock::now();
+    }
+
+    void StopTestsTimer() {
+        testRunning = false;
+    }
+};
+
+struct NonIidParsedResults {
+    double minEntropy = 0.0f;
+    double h_original = 0.0f;
+    double h_bitstring = 0.0f;
+
+    bool ParseResult(const std::string& rawResultsOutput) {
+        // Extract H_original
+        std::regex h_original_pattern(R"(H_original:\s*([\d.]+))");
+        std::smatch h_original_match;
+        if (std::regex_search(rawResultsOutput, h_original_match, h_original_pattern)) {
+            try {
+                h_original = std::stod(h_original_match[1]);
+            } catch (...) {
+                return false;
+            }
+        } else {
+            return false;
+        }
+        
+        // Extract H_bitstring
+        std::regex h_bitstring_pattern(R"(H_bitstring:\s*([\d.]+))");
+        std::smatch h_bitstring_match;
+        if (std::regex_search(rawResultsOutput, h_bitstring_match, h_bitstring_pattern)) {
+            try {
+                h_bitstring = std::stod(h_bitstring_match[1]);
+            } catch (...) {
+                return false;
+            }
+        } else {
+            return false;
+        }
+        
+        // Extract min entropy
+        std::regex min_entropy_pattern(R"(min\(H_original, 8 X H_bitstring\):\s*([\d.]+))");
+        std::smatch min_entropy_match;
+        if (std::regex_search(rawResultsOutput, min_entropy_match, min_entropy_pattern)) {
+            try {
+                minEntropy = std::stod(min_entropy_match[1]);
+            } catch (...) {
+                return false;
+            }
+        } else {
+            return false;
+        }
+        
+        return true;
+    }
 };
 
 struct StatisticData {
@@ -28,31 +93,10 @@ struct StatisticData {
     std::string nonIidResult = "";
     std::string restartResult = "";
 
-    double minEntropy = 0.0f;
+    NonIidParsedResults nonIidParsedResults;
 
-    bool nonIidTestRunning = false;
-    std::chrono::steady_clock::time_point nonIidStartTime;
-
-    void StartNonIidTestsTimer() {
-        nonIidTestRunning = true;
-        nonIidStartTime = std::chrono::steady_clock::now();
-    }
-
-    void StopNonIidTestsTimer() {
-        nonIidTestRunning = false;
-    }
-
-    bool restartTestRunning = false;
-    std::chrono::steady_clock::time_point restartStartTime;
-
-    void StartRestartTestsTimer() {
-        restartTestRunning = true;
-        restartStartTime = std::chrono::steady_clock::now();
-    }
-
-    void StopRestartTestsTimer() {
-        restartTestRunning = false;
-    }
+    TestTimer nonIidTestTimer;
+    TestTimer restartTestTimer;
 };
 
 struct BaseHistogram {
@@ -62,26 +106,14 @@ struct BaseHistogram {
     double binWidth = 0.0;
     std::array<int, binCount> binCounts{};
 
-    lib90b::EntropyInputData entropyData;
-    lib90b::NonIidResult entropyResults;
+    //lib90b::EntropyInputData entropyData;
+    //lib90b::NonIidResult entropyResults;
+    std::filesystem::path nonIidSampleFilePath;
+    std::filesystem::path nonIidResultFilePath;
+    std::string nonIidResult = "";
+    NonIidParsedResults nonIidParsedResults;
     
-    bool testsRunning = false;
-    std::chrono::steady_clock::time_point startTime;
-
-    void StartTestsTimer() {
-        testsRunning = true;
-        startTime = std::chrono::steady_clock::now();
-    }
-
-    void StopTestsTimer() {
-        testsRunning = false;
-    }
-
-    double GetElapsedTestsSeconds() const {
-        if (!testsRunning) return 0.0;
-        auto now = std::chrono::steady_clock::now();
-        return std::chrono::duration<double>(now - startTime).count();
-    }
+    TestTimer testTimer;
 };
 
 struct SubHistogram : public BaseHistogram {
@@ -97,23 +129,7 @@ struct MainHistogram : public BaseHistogram {
 
     std::vector<SubHistogram> subHists;
 
-    bool decimationRunning = false;
-    std::chrono::steady_clock::time_point decimationStartTime;
-
-    void StartDecimationTimer() {
-        decimationRunning = true;
-        decimationStartTime = std::chrono::steady_clock::now();
-    }
-
-    void StopDecimationTimer() {
-        decimationRunning = false;
-    }
-
-    double GetElapsedDecimationSeconds() const {
-        if (!decimationRunning) return 0.0;
-        auto now = std::chrono::steady_clock::now();
-        return std::chrono::duration<double>(now - decimationStartTime).count();
-    }
+    TestTimer decimationTestTimer;
 };
 
 struct HeuristicData {

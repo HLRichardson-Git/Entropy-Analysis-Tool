@@ -171,7 +171,7 @@ Project DataManager::LoadProject(const std::string& filename) {
                         auto& nonIidJson = statisticJson["nonIid"];
                         statisticData.nonIidSampleFilePath = nonIidJson.value("nonIidFilePath", "");
                         statisticData.nonIidResultFilePath = nonIidJson.value("nonIidResultPath", "");
-                        statisticData.minEntropy = nonIidJson.value("minEntropy", 1.0);
+                        statisticData.nonIidParsedResults.minEntropy = nonIidJson.value("minEntropy", 1.0);
 
                         if (!statisticData.nonIidResultFilePath.empty()) {
                             auto size = std::filesystem::file_size(statisticData.nonIidResultFilePath);
@@ -221,10 +221,10 @@ Project DataManager::LoadProject(const std::string& filename) {
 
                         if (mhJson.contains("nonIidResults") && mhJson["nonIidResults"].is_object()) {
                             auto& resJson = mhJson["nonIidResults"];
-                            auto& res = mainHist.entropyResults;
-                            res.H_original  = resJson.value("H_original", res.H_original.value_or(0.0));
-                            res.H_bitstring = resJson.value("H_bitstring", res.H_bitstring.value_or(0.0));
-                            res.min_entropy = resJson.value("min_entropy", res.min_entropy.value_or(0.0));
+                            auto& res = mainHist.nonIidParsedResults;
+                            res.h_original  = resJson.value("H_original", res.h_original);
+                            res.h_bitstring = resJson.value("H_bitstring", res.h_bitstring);
+                            res.minEntropy = resJson.value("min_entropy", res.minEntropy);
                         }
 
                         mainHist.firstPassingDecimationResult = mhJson.value("firstPassingDecimationResult", "");
@@ -255,10 +255,10 @@ Project DataManager::LoadProject(const std::string& filename) {
 
                             if (shJson.contains("nonIidResults") && shJson["nonIidResults"].is_object()) {
                                 auto& rJson = shJson["nonIidResults"];
-                                auto& rRes = sh.entropyResults;
-                                rRes.H_original  = rJson.value("H_original", rRes.H_original.value_or(0.0));
-                                rRes.H_bitstring = rJson.value("H_bitstring", rRes.H_bitstring.value_or(0.0));
-                                rRes.min_entropy = rJson.value("min_entropy", rRes.min_entropy.value_or(0.0));
+                                auto& rRes = sh.nonIidParsedResults;
+                                rRes.h_original  = rJson.value("H_original", rRes.h_original);
+                                rRes.h_bitstring = rJson.value("H_bitstring", rRes.h_bitstring);
+                                rRes.minEntropy = rJson.value("min_entropy", rRes.minEntropy);
                             }
 
                             sh.subHistIndex = static_cast<int>(oe.heuristicData.mainHistogram.subHists.size()) + 1;
@@ -545,7 +545,7 @@ void DataManager::UpdateOEsForProject(Project& project) {
 
             if (!statisticData.nonIidResultFilePath.empty()) {
                 nonIidJson["nonIidResultPath"] = statisticData.nonIidResultFilePath;
-                nonIidJson["minEntropy"] = statisticData.minEntropy;
+                nonIidJson["minEntropy"] = statisticData.nonIidParsedResults.minEntropy;
             }
 
             statisticJson["nonIid"] = nonIidJson;
@@ -577,12 +577,12 @@ void DataManager::UpdateOEsForProject(Project& project) {
             mhJson["binWidth"] = mainHist.binWidth;
             mhJson["computedBins"] = mainHist.binCounts;
 
-            if (mainHist.entropyResults.min_entropy.has_value()) {
-                auto& res = mainHist.entropyResults;
+            if (mainHist.nonIidParsedResults.minEntropy != 0.0f) {
+                const auto& res = mainHist.nonIidParsedResults;
                 nlohmann::json resJson;
-                if (res.H_original.has_value())  resJson["H_original"]  = res.H_original.value();
-                if (res.H_bitstring.has_value()) resJson["H_bitstring"] = res.H_bitstring.value();
-                resJson["min_entropy"] = res.min_entropy.value();
+                if (res.h_original != 0.0f)  resJson["H_original"]  = res.h_original;
+                if (res.h_bitstring != 0.0f) resJson["H_bitstring"] = res.h_bitstring;
+                resJson["min_entropy"] = res.minEntropy;
                 mhJson["nonIidResults"] = resJson;
             }
 
@@ -596,12 +596,12 @@ void DataManager::UpdateOEsForProject(Project& project) {
                 j["min"] = sh.rect.X.Min;
                 j["max"] = sh.rect.X.Max;
                 j["color"] = { sh.color.x, sh.color.y, sh.color.z, sh.color.w };
-                if (sh.entropyResults.min_entropy.has_value()) {
-                    auto& res = sh.entropyResults;
+                if (sh.nonIidParsedResults.minEntropy != 0.0f) {
+                    auto& res = sh.nonIidParsedResults;
                     nlohmann::json rj;
-                    if (res.H_original.has_value())  rj["H_original"]  = res.H_original.value();
-                    if (res.H_bitstring.has_value()) rj["H_bitstring"] = res.H_bitstring.value();
-                    rj["min_entropy"] = res.min_entropy.value();
+                    if (res.h_original != 0.0f)  rj["H_original"]  = res.h_original;
+                    if (res.h_bitstring != 0.0f) rj["H_bitstring"] = res.h_bitstring;
+                    rj["min_entropy"] = res.minEntropy;
                     j["nonIidResults"] = rj;
                 }
                 subHistJson.push_back(j);
@@ -619,22 +619,6 @@ void DataManager::UpdateOEsForProject(Project& project) {
 
         oe.oePath = fs::relative(newDir, projectDir).string();
     }
-}
-
-// Statistic
-std::optional<double> DataManager::extractMinEntropy(const std::string& rawResultsOutput) {
-    std::regex pattern(R"(min\(H_original, 8 X H_bitstring\):\s*([\d.]+))");
-    std::smatch match;
-
-    if (std::regex_search(rawResultsOutput, match, pattern)) {
-        try {
-            return std::stod(match[1]);
-        } catch (...) {
-            return std::nullopt;
-        }
-    }
-
-    return std::nullopt;
 }
 
 // Heuristic
@@ -656,8 +640,7 @@ void DataManager::processHistogramForProject(Project& project, int oeIndex, Thre
 
 bool DataManager::ConvertDecimalFile(
     const std::filesystem::path& inputFilePath,
-    lib90b::EntropyInputData& outData,
-    std::string& outBinaryFilePath,
+    std::filesystem::path& outBinaryFilePath,
     std::optional<double> minVal,
     std::optional<double> maxVal,
     int regionIndex)
@@ -687,11 +670,6 @@ bool DataManager::ConvertDecimalFile(
 
     if (symbols.empty()) return false;
 
-    // Fill EntropyInputData
-    outData.symbols = std::move(symbols);
-    outData.word_size = 8;
-    outData.alph_size = 256;
-
     // Prepare output file path
     fs::path inputPath(inputFilePath);
     std::string stem = inputPath.stem().string();
@@ -702,9 +680,9 @@ bool DataManager::ConvertDecimalFile(
     // Save binary file
     std::ofstream outFile(outPath, std::ios::binary);
     if (!outFile.is_open()) return false;
-    outFile.write(reinterpret_cast<const char*>(outData.symbols.data()), outData.symbols.size());
+    outFile.write(reinterpret_cast<const char*>(symbols.data()), symbols.size());
     outFile.close();
 
-    outBinaryFilePath = outPath.string();
+    outBinaryFilePath = outPath;
     return true;
 }
