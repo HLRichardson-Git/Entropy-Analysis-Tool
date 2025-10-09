@@ -35,17 +35,20 @@ std::optional<std::string> FileSelector(
     const std::string& dialogKey,
     const std::string& buttonLabel,
     const std::string& fileFilters,
-    const std::string& initialPath
+    const std::string& initialPath,
+    const ImVec2& buttonSize,
+    const Config::ButtonPalette& buttonColor,
+    const ImVec4& textColor
 ) {
     ImGui::BeginGroup();
     ImGui::PushFont(Config::fontH3);
-    ImGui::PushStyleColor(ImGuiCol_Button,        Config::GREY_BUTTON.normal);
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::GREY_BUTTON.hovered);
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREY_BUTTON.active);
-    ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_DARK_CHARCOAL);
+    ImGui::PushStyleColor(ImGuiCol_Button,        buttonColor.normal);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, buttonColor.hovered);
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive,  buttonColor.active);
+    ImGui::PushStyleColor(ImGuiCol_Text, textColor);
     {
         std::string buttonLabelWithIcon = std::string(reinterpret_cast<const char*>(u8"\uf574")) + " " + buttonLabel;
-        if (ImGui::Button(buttonLabelWithIcon.c_str())) {
+        if (ImGui::Button(buttonLabelWithIcon.c_str(), buttonSize)) {
             ImGuiFileDialog::Instance()->OpenDialog(dialogKey.c_str(), "Select File", fileFilters.c_str());
         }
     }

@@ -44,9 +44,9 @@ void StatisticManager::Render() {
 
         ImGui::Dummy(ImVec2(0.0f, 4 * ImGui::GetStyle().ItemSpacing.y));
 
-        RenderUploadSectionForOE(oe);
+        RenderUploadSectionForOE(oe, oe->statisticData.nonIidSampleFilePath, "Load Samples for Non-IID", ".bin,.txt,.data,.*");
 
-        // Run Statistical Tests (main)
+        // Run NIST SP 800-90B Non-IID Tests
         ImGui::PushFont(Config::fontH3_Bold);
         ImVec2 statisticalTestSize(200, 30);
 
@@ -106,46 +106,7 @@ void StatisticManager::Render() {
 
         ImGui::Dummy(ImVec2(0.0f, 4 * ImGui::GetStyle().ItemSpacing.y));
 
-        //RenderUploadSectionForOE(oe);
-        // create a unique id for this OE
-        std::string idSuffix = std::to_string(reinterpret_cast<uintptr_t>(oe));
-        std::string dlgId = std::string("StatisticRestartFileDlg_") + idSuffix;
-        std::string buttonLabel = std::string("Load Raw Samples##") + idSuffix;
-
-        // Call FileSelector with unique id / label:
-        ImGui::PushFont(Config::normal);
-        if (auto file = FileSelector(dlgId.c_str(), buttonLabel.c_str(), ".bin,.txt,.data,.*")) {
-            fs::path destDir = fs::path(m_currentProject->path) / oe->oePath;
-            // ensure destination dir exists
-            std::error_code ec;
-            fs::create_directories(destDir, ec);
-            if (ec) {
-                ImGui::TextColored(ImVec4(1,0.3f,0.3f,1), "Failed to create dest dir: %s", ec.message().c_str());
-            } else {
-                if (auto dest = CopyFileToDirectory(*file, destDir)) {
-                    oe->statisticData.restartSampleFilePath = dest->string(); // success
-                } else {
-                    ImGui::TextColored(ImVec4(1,0.3f,0.3f,1), "Failed to copy file for %s", oe->oeName.c_str());
-                }
-            }
-        }
-
-        ImGui::SameLine();
-
-        // display uploaded file path or placeholder
-        if (!oe->statisticData.restartSampleFilePath.empty()) {
-            fs::path filePath(oe->statisticData.restartSampleFilePath);
-            std::string filename = filePath.filename().string();
-            ImGui::TextWrapped("Current file: %s", filename.c_str());
-            if (ImGui::IsItemHovered()) {
-                ImGui::BeginTooltip();
-                ImGui::TextUnformatted(oe->statisticData.restartSampleFilePath.string().c_str());
-                ImGui::EndTooltip();
-            }
-        } else {
-            ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "No file loaded for this OE");
-        }
-        ImGui::PopFont();
+        RenderUploadSectionForOE(oe, oe->statisticData.restartSampleFilePath, "Load Samples for Restart", ".bin,.txt,.data,.*");
 
         ImGui::PushFont(Config::normal);
         ImGui::Text("Input Min Entropy: ");
@@ -154,7 +115,7 @@ void StatisticManager::Render() {
         ImGui::InputDouble("##MinEntropy", &oe->statisticData.minEntropy);
         ImGui::PopFont();
 
-        // Run Statistical Tests (main)
+        // Run NIST SP 800-90B Restart Tests
         ImGui::PushFont(Config::fontH3_Bold);
         ImVec2 statisticalTestSize(200, 30);
 
@@ -213,32 +174,33 @@ OperationalEnvironment* StatisticManager::GetSelectedOE() {
     return &m_currentProject->operationalEnvironments[idx];
 }
 
-void StatisticManager::RenderPopups() { 
-    //if (m_editHistogramPopupOpen) {
-    //    RenderMainHistogramConfigPopup();
-    //}
-}
+void StatisticManager::RenderUploadSectionForOE(
+    OperationalEnvironment* oe,
+    std::filesystem::path& filePathVar,
+    const std::string& labelPrefix,
+    const std::string& fileExtensions,
+    const ImVec2& buttonSize,
+    const Config::ButtonPalette& buttonColor,
+    const ImVec4& textColor
+) {
+    if (!oe || !m_currentProject) return;
 
-void StatisticManager::RenderUploadSectionForOE(OperationalEnvironment* oe) {
-    if (!oe) return;
-
-    // create a unique id for this OE
-    std::string idSuffix = std::to_string(reinterpret_cast<uintptr_t>(oe));
-    std::string dlgId = std::string("StatisticFileDlg_") + idSuffix;
-    std::string buttonLabel = std::string("Load Raw Samples##") + idSuffix;
-
-    // Call FileSelector with unique id / label:
+    ImGui::PushID(&filePathVar);
     ImGui::PushFont(Config::normal);
-    if (auto file = FileSelector(dlgId.c_str(), buttonLabel.c_str(), ".bin,.txt,.data,.*")) {
+
+    std::string idSuffix = std::to_string(reinterpret_cast<uintptr_t>(oe)) + "_" + labelPrefix;
+    std::string dlgId = "StatisticFileDlg_" + idSuffix;
+    std::string buttonLabel = labelPrefix + "##" + idSuffix;
+
+    if (auto file = FileSelector(dlgId.c_str(), buttonLabel.c_str(), fileExtensions.c_str(), ".", buttonSize)) {
         fs::path destDir = fs::path(m_currentProject->path) / oe->oePath;
-        // ensure destination dir exists
         std::error_code ec;
         fs::create_directories(destDir, ec);
         if (ec) {
             ImGui::TextColored(ImVec4(1,0.3f,0.3f,1), "Failed to create dest dir: %s", ec.message().c_str());
         } else {
             if (auto dest = CopyFileToDirectory(*file, destDir)) {
-                oe->statisticData.nonIidSampleFilePath = dest->string(); // success
+                filePathVar = dest->string();
             } else {
                 ImGui::TextColored(ImVec4(1,0.3f,0.3f,1), "Failed to copy file for %s", oe->oeName.c_str());
             }
@@ -247,18 +209,187 @@ void StatisticManager::RenderUploadSectionForOE(OperationalEnvironment* oe) {
 
     ImGui::SameLine();
 
-    // display uploaded file path or placeholder
-    if (!oe->statisticData.nonIidSampleFilePath.empty()) {
-        fs::path filePath(oe->statisticData.nonIidSampleFilePath);
+    // Current file display
+    if (!filePathVar.empty()) {
+        fs::path filePath(filePathVar);
         std::string filename = filePath.filename().string();
+
         ImGui::TextWrapped("Current file: %s", filename.c_str());
         if (ImGui::IsItemHovered()) {
             ImGui::BeginTooltip();
-            ImGui::TextUnformatted(oe->statisticData.nonIidSampleFilePath.string().c_str());
+            ImGui::TextUnformatted(filePathVar.string().c_str());
             ImGui::EndTooltip();
         }
     } else {
-        ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "No file loaded for this OE");
+        ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "No %s loaded for this OE", labelPrefix.c_str());
     }
+
     ImGui::PopFont();
+    ImGui::PopID();
+}
+
+
+void StatisticManager::RenderPopups() { 
+    if (m_showBatchPopup) {
+        RenderBatchStatistic();
+    }
+}
+
+void StatisticManager::RenderBatchStatistic() {
+    if (m_showBatchPopup)
+        ImGui::OpenPopup("Batch Statistic Analysis");
+
+    ImVec2 minSize = ImVec2(800, 630);
+    ImVec2 maxSize = ImVec2(FLT_MAX, FLT_MAX);
+
+    ImGui::SetNextWindowSizeConstraints(minSize, maxSize);
+    if (ImGui::BeginPopupModal("Batch Statistic Analysis", NULL)) {
+        static int currentStep = 0; // 0 = upload, 1 = non-iid, 2 = restart
+        static bool stepCompleted[3] = { false, false, false };
+
+        ImGui::PushFont(Config::fontH2_Bold);
+        ImGui::Text("Batch Statistic Analysis");
+        ImGui::PopFont();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        ImGui::PushFont(Config::fontH3);
+
+        // Step indicators
+        const char* stepNames[3] = { "1. Upload Samples", "2. Run Non-IID Tests", "3. Run Restart Tests" };
+        ImGui::Text("Progress:");
+        for (int i = 0; i < 3; ++i) {
+            if (i == currentStep)
+                ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_PURPLE);
+            else if (stepCompleted[i])
+                ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_GREEN);
+            else
+                ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_DARK_CHARCOAL);
+
+            ImGui::BulletText("%s", stepNames[i]);
+            ImGui::PopStyleColor();
+        }
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        // Step 1: Upload files
+        if (currentStep == 0) {
+            ImGui::Text("Step 1: Upload binary files for each OE.");
+            ImGui::Separator();
+            ImGui::Spacing();
+
+            for (auto& oe : m_currentProject->operationalEnvironments) {
+                ImGui::PushID(oe.oeName.c_str());
+                ImGui::Text("%s", oe.oeName.c_str());
+
+                // Upload Non-IID file
+                ImGui::TextColored(Config::TEXT_PURPLE, "Non-IID Sample File:");
+                ImGui::SameLine();
+                RenderUploadSectionForOE(&oe, oe.statisticData.nonIidSampleFilePath, "nonIid_batch", ".bin,.txt,.data,.*");
+
+                // Upload Restart file
+                ImGui::TextColored(Config::TEXT_BLUE, "Restart Sample File:");
+                ImGui::SameLine();
+                RenderUploadSectionForOE(&oe, oe.statisticData.restartSampleFilePath, "restart_batch", ".bin,.txt,.data,.*");
+
+                ImGui::PopID();
+                ImGui::Separator();
+                ImGui::Spacing();
+            }
+
+            // Automatically validate uploads before allowing "Next"
+            bool allUploaded = std::all_of(
+                m_currentProject->operationalEnvironments.begin(),
+                m_currentProject->operationalEnvironments.end(),
+                [](const auto& oe) {
+                    return !oe.statisticData.nonIidSampleFilePath.empty() &&
+                           !oe.statisticData.restartSampleFilePath.empty();
+                }
+            );
+
+            stepCompleted[0] = allUploaded;
+
+            if (!allUploaded && ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Please upload files for all OEs before proceeding.");
+            }
+
+            // Missing file popup (only shown if user tries to skip manually)
+            if (ImGui::BeginPopupModal("Missing Files", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
+                ImGui::Text("Please upload files for all Operational Environments before continuing.");
+                if (ImGui::Button("OK", ImVec2(120, 0))) {
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::EndPopup();
+            }
+        }
+
+        // Step 2: Run Non-IID tests
+        else if (currentStep == 1) {
+            ImGui::Text("Step 2: Run Non-IID tests.");
+            ImGui::TextWrapped("This will run the NIST SP 800-90B Non-IID test suite on the samples.");
+
+            if (ImGui::Button("Run Non-IID tests", ImVec2(200, 0))) {
+                if (m_onCommand) {
+                    // Loop through all Operational Environments
+                    for (size_t i = 0; i < m_currentProject->operationalEnvironments.size(); ++i) {
+                        m_onCommand(RunNonIidTestCommand{ static_cast<int>(i) });
+                    }
+                }
+            }
+
+            stepCompleted[1] = true; // Allow user to skip this test, and go straight to restart
+        }
+
+        // Step 3: Run Restart tests
+        else if (currentStep == 2) {
+            ImGui::Text("Step 3: Run Restart tests.");
+            ImGui::TextWrapped("This will run the NIST SP 800-90B Restart test suite on the samples.");
+
+            if (ImGui::Button("Run Restart tests", ImVec2(200, 0))) {
+                if (m_onCommand) {
+                    // Loop through all Operational Environments
+                    for (size_t i = 0; i < m_currentProject->operationalEnvironments.size(); ++i) {
+                        m_onCommand(RunRestartTestCommand{ static_cast<int>(i) });
+                    }
+                }
+            }
+
+            stepCompleted[2] = true; 
+        }
+
+        ImGui::Spacing();
+        ImGui::Separator();
+
+        // Navigation buttons
+        ImGui::BeginDisabled(currentStep == 0);
+        std::string backButton = std::string(reinterpret_cast<const char*>(u8"\uf060")) + "  Back";
+        if (ImGui::Button(backButton.c_str(), ImVec2(100, 0))) {
+            if (currentStep > 0) currentStep--;
+        }
+        ImGui::EndDisabled();
+
+        ImGui::SameLine();
+
+        ImGui::BeginDisabled(!stepCompleted[currentStep] || currentStep >= 2);
+        std::string nextButton = std::string(reinterpret_cast<const char*>(u8"\uf061")) + "  Next";
+        if (ImGui::Button(nextButton.c_str(), ImVec2(100, 0))) {
+            if (currentStep < 2) currentStep++;
+        }
+        ImGui::EndDisabled();
+
+        ImGui::SameLine();
+
+        if (ImGui::Button("Close", ImVec2(100, 0))) {
+            ImGui::CloseCurrentPopup();
+            m_showBatchPopup = false;
+            currentStep = 0;
+            memset(stepCompleted, 0, sizeof(stepCompleted));
+        }
+
+        ImGui::PopFont();
+
+        ImGui::EndPopup();
+    }
 }

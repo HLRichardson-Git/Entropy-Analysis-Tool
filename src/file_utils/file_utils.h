@@ -23,7 +23,10 @@ std::optional<std::string> FileSelector(
     const std::string& dialogKey,       // Unique key for this dialog
     const std::string& buttonLabel,     // Label for the button that opens dialog
     const std::string& fileFilters = ".*", // e.g. ".txt,.bin"
-    const std::string& initialPath = "."    // Start folder
+    const std::string& initialPath = ".",    // Start folder
+    const ImVec2& buttonSize = ImVec2(0, 0),
+    const Config::ButtonPalette& buttonColor = Config::GREY_BUTTON,
+    const ImVec4& textColor = Config::TEXT_DARK_CHARCOAL
 );
 
 std::optional<fs::path> CopyFileToDirectory(const fs::path& sourcePath, const fs::path& destDir);

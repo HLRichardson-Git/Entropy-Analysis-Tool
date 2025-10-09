@@ -242,10 +242,9 @@ void UIManager::RenderSidebar() {
         std::string runAnalysisButton = std::string(reinterpret_cast<const char*>(u8"\uf04b")) + "  Run Batch Analysis";
         if (ImGui::Button(runAnalysisButton.c_str(), runAnalysisButtonSize)) {
             if (uiState.activeTab == Tabs::StatisticalAssessment) {
-                // TODO: Add logic for doing bath analysis when we have implemented statistical analysis
+                statisticManager.m_showBatchPopup = true;
             }
             else if (uiState.activeTab == Tabs::HeuristicAssessment) {
-                // TODO: Add logic for doing bath analysis for the heuristic data
                 heuristicManager.m_showBatchPopup = true;
             }
         }
