@@ -532,6 +532,7 @@ NewProjectFormResult UIManager::RenderNewProjectPopup() {
         ImGui::PushStyleColor(ImGuiCol_Button,        Config::GREEN_BUTTON.normal);
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::GREEN_BUTTON.hovered);
         ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREEN_BUTTON.active);
+        ImGui::BeginDisabled(strlen(repoName) == 0 || strlen(projectName) == 0);
         if (ImGui::Button((std::string(reinterpret_cast<const char*>(u8"\uf067")) + " Create").c_str(), ImVec2(buttonWidth, 0))) {
             result.submitted = true;
             result.vendor = m_config->vendorsList[selectedVendorIndex];
@@ -540,6 +541,7 @@ NewProjectFormResult UIManager::RenderNewProjectPopup() {
             ImGui::CloseCurrentPopup();
             uiState.newProjectPopupOpen = false; // reset flag
         }
+        ImGui::EndDisabled();
         ImGui::PopStyleColor(3);
 
         ImGui::SameLine(0, spacing);
@@ -665,10 +667,31 @@ AddOEFormResult UIManager::RenderAddOEPopup() {
         ImGui::Text("Name:");
         ImGui::SameLine();
         static char oeNameBuffer[128] = "";
+
+        // Set default name if buffer is empty
+        if (strlen(oeNameBuffer) == 0) {
+            int defaultIndex = (int)m_currentProject->operationalEnvironments.size() + 1; // OE x
+            snprintf(oeNameBuffer, sizeof(oeNameBuffer), "OE %d", defaultIndex);
+        }
+
         ImGui::InputText("##OEName", oeNameBuffer, IM_ARRAYSIZE(oeNameBuffer));
+
+        // Check for duplicates
+        bool duplicateName = false;
+        for (const auto& oe : m_currentProject->operationalEnvironments) {
+            if (oe.oeName == oeNameBuffer) {
+                duplicateName = true;
+                break;
+            }
+        }
 
         ImGuiSpacing(1);
         ImGui::Separator();
+
+        // Show warning if duplicate
+        if (duplicateName) {
+            ImGui::TextColored(ImVec4(1, 0.5f, 0, 1), "Cannot add OE: name already exists!");
+        }
 
         // Action buttons
         float buttonWidth = 120.0f;
@@ -679,6 +702,9 @@ AddOEFormResult UIManager::RenderAddOEPopup() {
         ImGui::PushStyleColor(ImGuiCol_Button,        Config::GREEN_BUTTON.normal);
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::GREEN_BUTTON.hovered);
         ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREEN_BUTTON.active);
+
+        // Disable if empty or duplicate
+        ImGui::BeginDisabled(strlen(oeNameBuffer) == 0 || duplicateName);
         if (ImGui::Button((std::string(reinterpret_cast<const char*>(u8"\uf067")) + " Add").c_str(), ImVec2(buttonWidth, 0))) {
             result.submitted = true;
             result.oeName = oeNameBuffer;
@@ -687,6 +713,7 @@ AddOEFormResult UIManager::RenderAddOEPopup() {
             uiState.addOEPopupOpen = false;
             std::fill(std::begin(oeNameBuffer), std::end(oeNameBuffer), 0); // clear input
         }
+        ImGui::EndDisabled();
         ImGui::PopStyleColor(3);
 
         ImGui::SameLine(0, spacing);
