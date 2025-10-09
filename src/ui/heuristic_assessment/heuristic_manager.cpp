@@ -146,10 +146,9 @@ void HeuristicManager::Render() {
         ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREEN_BUTTON.active);
         ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_LIGHT_GREY);
         {
+            ImGui::BeginDisabled(oe->heuristicData.mainHistogram.convertedFilePath.empty() || oe->heuristicData.mainHistogram.testsRunning);
             std::string runStatisticalTestButton = std::string(reinterpret_cast<const char*>(u8"\uf83e")) + "  Run Statistical Tests";
             if (ImGui::Button(runStatisticalTestButton.c_str(), statisticalTestSize)) {
-                if (oe->heuristicData.mainHistogram.heuristicFilePath.empty()) return;
-
                 oe->heuristicData.mainHistogram.testsRunning = true;
                 oe->heuristicData.mainHistogram.startTime = std::chrono::steady_clock::now();
 
@@ -164,6 +163,7 @@ void HeuristicManager::Render() {
                     });
                 }
             }
+            ImGui::EndDisabled();
         }
         ImGui::PopStyleColor(4);
 
@@ -175,13 +175,10 @@ void HeuristicManager::Render() {
         ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::RED_BUTTON.active);
         ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_LIGHT_GREY);
         {
+            ImGui::BeginDisabled(oe->heuristicData.mainHistogram.convertedFilePath.empty() || oe->heuristicData.mainHistogram.decimationRunning);
             std::string findFirstPassingDecimationButton = std::string(reinterpret_cast<const char*>(u8"\uf12d")) + "  Find Passing Decimation";
             if (ImGui::Button(findFirstPassingDecimationButton.c_str(), findFirstDecimationSize)) {
                 const fs::path convertedFilePath = oe->heuristicData.mainHistogram.convertedFilePath;
-                if (convertedFilePath.empty() || !fs::exists(convertedFilePath)) {
-                    std::cout << "Invalid file path or file does not exist: " << convertedFilePath << std::endl;
-                    return;
-                }
 
                 if (m_onCommand) {
                     m_onCommand(FindPassingDecimationCommand{
@@ -191,6 +188,7 @@ void HeuristicManager::Render() {
                     });
                 }
             }
+            ImGui::EndDisabled();
         }
         ImGui::PopStyleColor(4);
 
@@ -304,14 +302,14 @@ void HeuristicManager::Render() {
 
         ImGui::Separator();
 
-        ImGui::Text("First Passing Decimation Result:");
+        ImGui::Text("First Passing Decimation result:");
         if (!hist.firstPassingDecimationResult.empty()) {
             ImGui::BulletText("%s", hist.firstPassingDecimationResult.c_str());
         } else if (hist.decimationRunning) {
             float t = std::chrono::duration<float>(std::chrono::steady_clock::now() - hist.decimationStartTime).count();
             ImGui::BulletText("Running tests %.1fs %c", t, "|/-\\"[static_cast<int>(t*4) % 4]);
         } else {
-            ImGui::BulletText("Not yet ran.");
+            ImGui::BulletText("First Passing Decimation results not available");
         }
 
         ImGui::PopFont();
