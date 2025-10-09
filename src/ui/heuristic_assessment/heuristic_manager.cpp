@@ -531,10 +531,8 @@ void HeuristicManager::RenderUploadSectionForOE(OperationalEnvironment* oe)
     std::string dlgId = std::string("HistogramFileDlg_") + idSuffix;
     std::string buttonLabel = std::string("Load Raw Samples##") + idSuffix; // '##' hides uniqueness from UI
 
-    // Call FileSelector with unique id / label:
-    // Adjust these args to your FileSelector signature. In your earlier code you used:
-    // FileSelector("HistogramFileDlg", "Load Raw Samples", ".data,.bin,.txt,.*")
-    // So pass dialog id and a unique label:
+    ImGui::PushFont(Config::normal);
+
     if (auto file = FileSelector(dlgId.c_str(), buttonLabel.c_str(), ".data,.bin,.txt,.*"))
     {
         fs::path destDir = fs::path(m_currentProject->path) / oe->oePath;
@@ -568,6 +566,7 @@ void HeuristicManager::RenderUploadSectionForOE(OperationalEnvironment* oe)
     } else {
         ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "No file loaded for this OE");
     }
+    ImGui::PopFont();
 }
 
 void HeuristicManager::RenderMainHistogramConfigPopup() {

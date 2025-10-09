@@ -251,6 +251,7 @@ void StatisticManager::RenderBatchStatistic() {
     ImVec2 maxSize = ImVec2(FLT_MAX, FLT_MAX);
 
     ImGui::SetNextWindowSizeConstraints(minSize, maxSize);
+    ImGui::PushFont(Config::normal);
     if (ImGui::BeginPopupModal("Batch Statistic Analysis", NULL)) {
         static int currentStep = 0; // 0 = upload, 1 = non-iid, 2 = restart
         static bool stepCompleted[3] = { false, false, false };
@@ -412,4 +413,5 @@ void StatisticManager::RenderBatchStatistic() {
 
         ImGui::EndPopup();
     }
+    ImGui::PopFont();
 }

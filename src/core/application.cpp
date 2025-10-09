@@ -53,32 +53,41 @@ void Application::Update() {
                 dataManager.DeleteOE(currentProject, command.oeIndex, config);
                 uiManager.OnProjectChanged(currentProject);
             } else if constexpr (std::is_same_v<T, ProcessHistogramCommand>) {
-                auto& oe = currentProject.operationalEnvironments[command.oeIndex];
+                GetThreadPool().Enqueue([this, cmd = command] {
+                    try {
+                        auto& oe = currentProject.operationalEnvironments[cmd.oeIndex];
 
-                // 1. Convert decimal file first
-                lib90b::EntropyInputData entropyData;
-                if (!oe.heuristicData.mainHistogram.heuristicFilePath.empty()) {
-                    if (!dataManager.ConvertDecimalFile(
-                            oe.heuristicData.mainHistogram.heuristicFilePath,
-                            oe.heuristicData.mainHistogram.convertedFilePath
-                            )) 
-                    {
-                        uiManager.PushNotification("Failed to convert file for statistical tests.", 5.0f, ImVec4(1,0,0,1));
-                        return;
+                        // 1. Convert decimal file first
+                        lib90b::EntropyInputData entropyData;
+                        if (!oe.heuristicData.mainHistogram.heuristicFilePath.empty()) {
+                            if (!dataManager.ConvertDecimalFile(
+                                    oe.heuristicData.mainHistogram.heuristicFilePath,
+                                    oe.heuristicData.mainHistogram.convertedFilePath
+                                    )) 
+                            {
+                                uiManager.PushNotification("Failed to convert file for statistical tests.", 5.0f, ImVec4(1,0,0,1));
+                                return;
+                            }
+                        } else {
+                            uiManager.PushNotification("No raw file uploaded to convert.", 5.0f, ImVec4(1,0,0,1));
+                            return;
+                        }
+
+                        // 2. Process histogram
+                        dataManager.processHistogramForProject(
+                            currentProject,
+                            cmd.oeIndex,
+                            GetThreadPool(),
+                            [this](const std::string& msg, float duration, ImVec4 color) {
+                                uiManager.PushNotification(msg, duration, color);
+                            }
+                        );
+
+                        uiManager.PushNotification("Histogram processing completed.", 3.0f, ImVec4(0,1,0,1));
+                    } catch (const std::exception& e) {
+                        uiManager.PushNotification(std::string("Histogram processing failed: ") + e.what(), 5.0f, ImVec4(1,0,0,1));
                     }
-                } else {
-                    uiManager.PushNotification("No raw file uploaded to convert.", 5.0f, ImVec4(1,0,0,1));
-                    return;
-                }
-                
-                dataManager.processHistogramForProject(
-                    currentProject,
-                    command.oeIndex,
-                    GetThreadPool(),
-                    [this](const std::string& msg, float duration, ImVec4 color) {
-                        uiManager.PushNotification(msg, duration, color);
-                    }
-                );
+                });
             } else if constexpr (std::is_same_v<T, RunNonIidTestCommand>) {
                 // Enqueue work
                 GetThreadPool().Enqueue([this, cmd = command] {
@@ -139,8 +148,6 @@ void Application::Update() {
                     }
                 });
             } else if constexpr (std::is_same_v<T, FindPassingDecimationCommand>) {
-                auto& oe = currentProject.operationalEnvironments[command.oeIndex];
-
                 GetThreadPool().Enqueue([this, cmd = command] {
                     try {
                         // Get reference to the OE

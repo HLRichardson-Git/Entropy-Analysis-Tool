@@ -500,6 +500,7 @@ NewProjectFormResult UIManager::RenderNewProjectPopup() {
         ImGui::OpenPopup("New Project");
     }
 
+    ImGui::PushFont(Config::normal);
     if (ImGui::BeginPopupModal("New Project", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::Text("Vendor:");
         if (ImGui::BeginCombo("##vendor", m_config->vendorsList[selectedVendorIndex].c_str())) {
@@ -519,7 +520,19 @@ NewProjectFormResult UIManager::RenderNewProjectPopup() {
         ImGui::Text("Project Name:");
         ImGui::InputText("##project", projectName, IM_ARRAYSIZE(projectName));
 
-        if (ImGui::Button("Create")) {
+        ImGuiSpacing(1);
+        ImGui::Separator();
+
+        // Action buttons
+        float buttonWidth = 120.0f;
+        float spacing = 10.0f;
+
+        // Save button
+        ImGui::PushFont(Config::fontH3);
+        ImGui::PushStyleColor(ImGuiCol_Button,        Config::GREEN_BUTTON.normal);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::GREEN_BUTTON.hovered);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREEN_BUTTON.active);
+        if (ImGui::Button((std::string(reinterpret_cast<const char*>(u8"\uf067")) + " Create").c_str(), ImVec2(buttonWidth, 0))) {
             result.submitted = true;
             result.vendor = m_config->vendorsList[selectedVendorIndex];
             result.repo = repoName;
@@ -527,16 +540,26 @@ NewProjectFormResult UIManager::RenderNewProjectPopup() {
             ImGui::CloseCurrentPopup();
             uiState.newProjectPopupOpen = false; // reset flag
         }
+        ImGui::PopStyleColor(3);
 
-        ImGui::SameLine();
-        if (ImGui::Button("Cancel")) {
+        ImGui::SameLine(0, spacing);
+
+        // Cancel button
+        ImGui::PushStyleColor(ImGuiCol_Button,        Config::GREY_BUTTON.normal);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::GREY_BUTTON.hovered);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREY_BUTTON.active);
+        ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_DARK_CHARCOAL);
+        if (ImGui::Button((std::string(reinterpret_cast<const char*>(u8"\uf00d")) + " Cancel").c_str(), ImVec2(buttonWidth, 0))) {
             result.submitted = false;
             ImGui::CloseCurrentPopup();
             uiState.newProjectPopupOpen = false; // reset flag
         }
+        ImGui::PopStyleColor(4);
+        ImGui::PopFont();
 
         ImGui::EndPopup();
     }
+    ImGui::PopFont();
 
     return result;
 }
@@ -551,6 +574,7 @@ LoadProjectFormResult UIManager::RenderLoadProjectPopup() {
     static bool projectSelected = false;
     static std::string selectedPath;
 
+    ImGui::PushFont(Config::normal);
     if (ImGui::BeginPopupModal("Load Project", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::Text("Select a Project:");
 
@@ -583,15 +607,30 @@ LoadProjectFormResult UIManager::RenderLoadProjectPopup() {
             }
         }
 
+        ImGuiSpacing(1);
         ImGui::Separator();
-        if (ImGui::Button("Cancel")) {
+
+        // Action buttons
+        float buttonWidth = 120.0f;
+        float spacing = 10.0f;
+
+        // Cancel button
+        ImGui::PushFont(Config::fontH3);
+        ImGui::PushStyleColor(ImGuiCol_Button,        Config::GREY_BUTTON.normal);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::GREY_BUTTON.hovered);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREY_BUTTON.active);
+        ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_DARK_CHARCOAL);
+        if (ImGui::Button((std::string(reinterpret_cast<const char*>(u8"\uf00d")) + " Cancel").c_str(), ImVec2(buttonWidth, 0))) {
             result.submitted = false;
             ImGui::CloseCurrentPopup();
             uiState.loadProjectPopupOpen = false;
         }
+        ImGui::PopStyleColor(4);
+        ImGui::PopFont();
 
         ImGui::EndPopup();
     }
+    ImGui::PopFont();
 
     // Handle load *after* UI cleanup
     if (projectSelected) {
@@ -613,14 +652,34 @@ AddOEFormResult UIManager::RenderAddOEPopup() {
         ImGui::OpenPopup("Add Operational Environment");
     }
 
+    ImGui::PushFont(Config::normal);
     if (ImGui::BeginPopupModal("Add Operational Environment", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::Text("Enter a name for the new OE:");
+        // Title
+        ImGui::PushFont(Config::fontH2_Bold);
+        ImGui::Text("Add OE");
+        ImGui::PopFont();
+        ImGui::Spacing();
 
+        // Input field
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Name:");
+        ImGui::SameLine();
         static char oeNameBuffer[128] = "";
-        ImGui::InputText("OE Name", oeNameBuffer, IM_ARRAYSIZE(oeNameBuffer));
+        ImGui::InputText("##OEName", oeNameBuffer, IM_ARRAYSIZE(oeNameBuffer));
 
-        // Buttons
-        if (ImGui::Button("Add")) {
+        ImGuiSpacing(1);
+        ImGui::Separator();
+
+        // Action buttons
+        float buttonWidth = 120.0f;
+        float spacing = 10.0f;
+
+        // Save button
+        ImGui::PushFont(Config::fontH3);
+        ImGui::PushStyleColor(ImGuiCol_Button,        Config::GREEN_BUTTON.normal);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::GREEN_BUTTON.hovered);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREEN_BUTTON.active);
+        if (ImGui::Button((std::string(reinterpret_cast<const char*>(u8"\uf067")) + " Add").c_str(), ImVec2(buttonWidth, 0))) {
             result.submitted = true;
             result.oeName = oeNameBuffer;
 
@@ -628,18 +687,28 @@ AddOEFormResult UIManager::RenderAddOEPopup() {
             uiState.addOEPopupOpen = false;
             std::fill(std::begin(oeNameBuffer), std::end(oeNameBuffer), 0); // clear input
         }
+        ImGui::PopStyleColor(3);
 
-        ImGui::SameLine();
-        if (ImGui::Button("Cancel")) {
+        ImGui::SameLine(0, spacing);
+
+        // Cancel button
+        ImGui::PushStyleColor(ImGuiCol_Button,        Config::GREY_BUTTON.normal);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::GREY_BUTTON.hovered);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREY_BUTTON.active);
+        ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_DARK_CHARCOAL);
+        if (ImGui::Button((std::string(reinterpret_cast<const char*>(u8"\uf00d")) + " Cancel").c_str(), ImVec2(buttonWidth, 0))) {
             result.submitted = false;
 
             ImGui::CloseCurrentPopup();
             uiState.addOEPopupOpen = false;
             std::fill(std::begin(oeNameBuffer), std::end(oeNameBuffer), 0); // clear input
         }
+        ImGui::PopStyleColor(4);
+        ImGui::PopFont();
 
         ImGui::EndPopup();
     }
+    ImGui::PopFont();
 
     return result;
 }
@@ -665,7 +734,8 @@ EditOEFormResult UIManager::RenderEditOEPopup() {
     }
 
     ImGui::SetNextWindowSize(ImVec2(450, 0), ImGuiCond_Appearing);
-    if (ImGui::BeginPopupModal("Edit Operational Environment", nullptr, ImGuiWindowFlags_NoResize)) {
+    ImGui::PushFont(Config::normal);
+    if (ImGui::BeginPopupModal("Edit Operational Environment", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
 
         // Title
         ImGui::PushFont(Config::fontH2_Bold);
@@ -763,6 +833,7 @@ EditOEFormResult UIManager::RenderEditOEPopup() {
 
         ImGui::EndPopup();
     }
+    ImGui::PopFont();
 
     return result;
 }
