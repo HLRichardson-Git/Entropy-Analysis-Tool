@@ -55,12 +55,16 @@ void StatisticManager::Render() {
         ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREEN_BUTTON.active);
         ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_LIGHT_GREY);
         {
-            ImGui::BeginDisabled(oe->statisticData.nonIidSampleFilePath.empty() || oe->statisticData.nonIidTestRunning);
+            ImGui::BeginDisabled(oe->statisticData.nonIidSampleFilePath.empty() || oe->statisticData.nonIidTestTimer.testRunning);
             std::string runStatisticalTestButton = std::string(reinterpret_cast<const char*>(u8"\uf83e")) + "  Run Non-IID Test Suite";
             if (ImGui::Button(runStatisticalTestButton.c_str(), statisticalTestSize)) {
                 if (m_onCommand) {
                     m_onCommand(RunNonIidTestCommand{
-                        m_uiState->selectedOEIndex
+                        oe->statisticData.nonIidSampleFilePath,
+                        &oe->statisticData.nonIidResultFilePath,
+                        &oe->statisticData.nonIidResult,
+                        &oe->statisticData.nonIidParsedResults,
+                        &oe->statisticData.nonIidTestTimer
                     });
                 }
             }
@@ -69,10 +73,10 @@ void StatisticManager::Render() {
         ImGui::PopStyleColor(4);
         ImGui::PopFont();
 
-        if (oe->statisticData.nonIidTestRunning) {
+        if (oe->statisticData.nonIidTestTimer.testRunning) {
             ImGui::SameLine();
             ImGui::PushFont(Config::normal);
-            float t = std::chrono::duration<float>(std::chrono::steady_clock::now() - oe->statisticData.nonIidStartTime).count();
+            float t = std::chrono::duration<float>(std::chrono::steady_clock::now() - oe->statisticData.nonIidTestTimer.testStartTime).count();
             ImGui::Text("Running test %.1fs %c", t, "|/-\\"[static_cast<int>(t*4) % 4]);
             ImGui::PopFont();
         }
@@ -112,7 +116,7 @@ void StatisticManager::Render() {
         ImGui::Text("Input Min Entropy: ");
         ImGui::SameLine();
         ImGui::SetNextItemWidth(150);
-        ImGui::InputDouble("##MinEntropy", &oe->statisticData.minEntropy);
+        ImGui::InputDouble("##MinEntropy", &oe->statisticData.nonIidParsedResults.minEntropy);
         ImGui::PopFont();
 
         // Run NIST SP 800-90B Restart Tests
@@ -124,12 +128,16 @@ void StatisticManager::Render() {
         ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREEN_BUTTON.active);
         ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_LIGHT_GREY);
         {
-            ImGui::BeginDisabled(oe->statisticData.restartSampleFilePath.empty() || oe->statisticData.restartTestRunning);
+            ImGui::BeginDisabled(oe->statisticData.restartSampleFilePath.empty() || oe->statisticData.restartTestTimer.testRunning);
             std::string runStatisticalTestButton = std::string(reinterpret_cast<const char*>(u8"\uf83e")) + "  Run Restart Test Suite";
             if (ImGui::Button(runStatisticalTestButton.c_str(), statisticalTestSize)) {
                 if (m_onCommand) {
                     m_onCommand(RunRestartTestCommand{
-                        m_uiState->selectedOEIndex
+                        oe->statisticData.nonIidParsedResults.minEntropy,
+                        oe->statisticData.restartSampleFilePath,
+                        &oe->statisticData.restartResultFilePath,
+                        &oe->statisticData.restartResult,
+                        &oe->statisticData.restartTestTimer
                     });
                 }
             }
@@ -138,10 +146,10 @@ void StatisticManager::Render() {
         ImGui::PopStyleColor(4);
         ImGui::PopFont();
 
-        if (oe->statisticData.restartTestRunning) {
+        if (oe->statisticData.restartTestTimer.testRunning) {
             ImGui::SameLine();
             ImGui::PushFont(Config::normal);
-            float t = std::chrono::duration<float>(std::chrono::steady_clock::now() - oe->statisticData.restartStartTime).count();
+            float t = std::chrono::duration<float>(std::chrono::steady_clock::now() - oe->statisticData.restartTestTimer.testStartTime).count();
             ImGui::Text("Running test %.1fs %c", t, "|/-\\"[static_cast<int>(t*4) % 4]);
             ImGui::PopFont();
         }
@@ -243,6 +251,7 @@ void StatisticManager::RenderBatchStatistic() {
     ImVec2 maxSize = ImVec2(FLT_MAX, FLT_MAX);
 
     ImGui::SetNextWindowSizeConstraints(minSize, maxSize);
+    ImGui::PushFont(Config::normal);
     if (ImGui::BeginPopupModal("Batch Statistic Analysis", NULL)) {
         static int currentStep = 0; // 0 = upload, 1 = non-iid, 2 = restart
         static bool stepCompleted[3] = { false, false, false };
@@ -333,8 +342,14 @@ void StatisticManager::RenderBatchStatistic() {
             if (ImGui::Button("Run Non-IID tests", ImVec2(200, 0))) {
                 if (m_onCommand) {
                     // Loop through all Operational Environments
-                    for (size_t i = 0; i < m_currentProject->operationalEnvironments.size(); ++i) {
-                        m_onCommand(RunNonIidTestCommand{ static_cast<int>(i) });
+                    for (auto& oe : m_currentProject->operationalEnvironments) {
+                        m_onCommand(RunNonIidTestCommand{
+                            oe.statisticData.nonIidSampleFilePath,
+                            &oe.statisticData.nonIidResultFilePath,
+                            &oe.statisticData.nonIidResult,
+                            &oe.statisticData.nonIidParsedResults,
+                            &oe.statisticData.nonIidTestTimer
+                        });
                     }
                 }
             }
@@ -350,8 +365,14 @@ void StatisticManager::RenderBatchStatistic() {
             if (ImGui::Button("Run Restart tests", ImVec2(200, 0))) {
                 if (m_onCommand) {
                     // Loop through all Operational Environments
-                    for (size_t i = 0; i < m_currentProject->operationalEnvironments.size(); ++i) {
-                        m_onCommand(RunRestartTestCommand{ static_cast<int>(i) });
+                    for (auto& oe : m_currentProject->operationalEnvironments) {
+                        m_onCommand(RunRestartTestCommand{
+                            oe.statisticData.nonIidParsedResults.minEntropy,
+                            oe.statisticData.restartSampleFilePath,
+                            &oe.statisticData.restartResultFilePath,
+                            &oe.statisticData.restartResult,
+                            &oe.statisticData.restartTestTimer
+                        });
                     }
                 }
             }
@@ -392,4 +413,5 @@ void StatisticManager::RenderBatchStatistic() {
 
         ImGui::EndPopup();
     }
+    ImGui::PopFont();
 }
