@@ -296,12 +296,12 @@ void StatisticManager::RenderBatchStatistic() {
                 // Upload Non-IID file
                 ImGui::TextColored(Config::TEXT_PURPLE, "Non-IID Sample File:");
                 ImGui::SameLine();
-                RenderUploadSectionForOE(&oe, oe.statisticData.nonIidSampleFilePath, "nonIid_batch", ".bin,.txt,.data,.*");
+                RenderUploadSectionForOE(&oe, oe.statisticData.nonIidSampleFilePath, "Load Samples for Non-IID", ".bin,.txt,.data,.*");
 
                 // Upload Restart file
                 ImGui::TextColored(Config::TEXT_BLUE, "Restart Sample File:");
                 ImGui::SameLine();
-                RenderUploadSectionForOE(&oe, oe.statisticData.restartSampleFilePath, "restart_batch", ".bin,.txt,.data,.*");
+                RenderUploadSectionForOE(&oe, oe.statisticData.restartSampleFilePath, "Load Samples for Restart", ".bin,.txt,.data,.*");
 
                 ImGui::PopID();
                 ImGui::Separator();
