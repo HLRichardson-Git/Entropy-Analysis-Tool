@@ -370,6 +370,13 @@ void UIManager::RenderMenuBar() {
             // TODO: Add options
             ImGui::EndMenu();
         }
+
+        if (ImGui::BeginMenu("Tools")) {
+            if (ImGui::MenuItem("JENT File Converter")) {
+                uiState.showFileConverterPopup = true;
+            }
+            ImGui::EndMenu();
+        }
         
         if (ImGui::BeginMenu("Help")) {
             if (ImGui::MenuItem("Show Help", "F1")) {
@@ -485,6 +492,10 @@ void UIManager::RenderPopups(){
 
             uiState.editOEPopupOpen = false;
         }
+    }
+
+    if (uiState.showFileConverterPopup) {
+        RenderJentFileConverterPopup();
     }
 }
 
@@ -864,6 +875,115 @@ EditOEFormResult UIManager::RenderEditOEPopup() {
 
     return result;
 }
+
+void UIManager::RenderJentFileConverterPopup() {
+    static std::filesystem::path inputFilePath;
+    static bool conversionDone = false;
+    static std::string statusMessage;
+
+    const ImVec2 buttonSize = ImVec2(150, 35);
+    const auto& buttonPalette = Config::GREEN_BUTTON;
+    const ImVec4 textColor = ImVec4(1, 1, 1, 1);
+
+    if (uiState.showFileConverterPopup)
+        ImGui::OpenPopup("JENT File Converter");
+
+    ImGui::SetNextWindowSizeConstraints(ImVec2(400, 300), ImVec2(FLT_MAX, FLT_MAX));
+    
+    ImGui::PushFont(Config::normal);
+    if (ImGui::BeginPopupModal("JENT File Converter", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        // --- Title ---
+        ImGui::PushFont(Config::fontH2_Bold);
+        ImGui::Text("JENT File Converter");
+        ImGui::PopFont();
+        ImGui::Spacing();
+
+        // --- Input File ---
+        ImGui::PushFont(Config::fontH2_Bold);
+        ImGui::Text("Input File:");
+        ImGui::PopFont();
+
+        if (auto file = FileSelector(
+            "SelectJENTInputDlg",
+            "Select Input",
+            "All Files (*.*){.*}",
+            ".",
+            buttonSize,
+            buttonPalette,
+            textColor))
+        {
+            inputFilePath = *file;
+            conversionDone = false;
+            statusMessage.clear();
+        }
+
+        if (!inputFilePath.empty()) {
+            ImGui::TextWrapped("%s", inputFilePath.string().c_str());
+        } else {
+            ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "No input file selected");
+        }
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        // --- Convert Button ---
+        bool canConvert = !inputFilePath.empty();
+        if (!canConvert)
+            ImGui::BeginDisabled();
+
+        if (ImGui::Button("Convert", ImVec2(120, 0))) {
+            std::filesystem::path outputFilePath = inputFilePath;
+            outputFilePath.replace_extension(".bin");
+
+            bool ok = m_dataManager->ConvertDecimalFile(inputFilePath, outputFilePath);
+            conversionDone = true;
+
+            if (ok) {
+                statusMessage = "Conversion successful!\nSaved to: " + outputFilePath.string();
+            } else {
+                statusMessage = "Conversion failed.";
+            }
+        }
+
+        if (!canConvert)
+            ImGui::EndDisabled();
+
+        ImGui::Spacing();
+
+        // --- Status Message ---
+        if (conversionDone) {
+            ImVec4 color = statusMessage.starts_with("Conversion successful!")
+                ? ImVec4(0.2f, 0.9f, 0.2f, 1.0f)
+                : ImVec4(0.9f, 0.2f, 0.2f, 1.0f);
+            ImGui::TextColored(color, "%s", statusMessage.c_str());
+        }
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        // --- Cancel Button ---
+        ImGui::PushFont(Config::fontH3);
+        ImGui::PushStyleColor(ImGuiCol_Button,        Config::GREY_BUTTON.normal);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::GREY_BUTTON.hovered);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREY_BUTTON.active);
+        ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_DARK_CHARCOAL);
+        if (ImGui::Button((std::string(reinterpret_cast<const char*>(u8"\uf00d")) + " Close").c_str(), ImVec2(120, 0))) {
+            ImGui::CloseCurrentPopup();
+            uiState.showFileConverterPopup = false;
+            inputFilePath.clear();
+            conversionDone = false;
+            statusMessage.clear();
+        }
+        ImGui::PopStyleColor(4);
+        ImGui::PopFont();
+
+        ImGui::EndPopup();
+    }
+    ImGui::PopFont();
+}
+
 
 //UI Elements
 void UIManager::ImGuiSpacing(int count) {

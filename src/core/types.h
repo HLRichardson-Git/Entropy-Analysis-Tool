@@ -196,6 +196,8 @@ struct UIState {
 
     int selectedOEIndex = -1; // -1 means no OE selected
 
+    bool showFileConverterPopup = false;
+    
     bool showHelpWindow = false;
 };
 
