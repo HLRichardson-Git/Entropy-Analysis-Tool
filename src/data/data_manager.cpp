@@ -653,15 +653,20 @@ bool DataManager::ConvertDecimalFile(
 
     while (std::getline(inFile, line)) {
         try {
-            double val = std::stod(line);
-
-            // If range is provided, skip values outside it
+            // Parse only the first number (before the space)
+            size_t spacePos = line.find(' ');
+            std::string firstNum = (spacePos != std::string::npos) 
+                                   ? line.substr(0, spacePos) 
+                                   : line;
+            
+            uint64_t val = std::stoull(firstNum);  // Convert directly to uint64_t
+            
+            // Optional: apply range filtering if needed
             if ((minVal && val < minVal.value()) || (maxVal && val > maxVal.value())) {
                 continue;
             }
 
-            uint64_t sample = static_cast<uint64_t>(val * 1e6); // scale if needed
-            uint8_t symbol = static_cast<uint8_t>(sample & 0xFF);
+            uint8_t symbol = static_cast<uint8_t>(val & 0xFF);  // Mask LSB 8-bits
             symbols.push_back(symbol);
         } catch (...) {
             continue; // skip invalid lines
