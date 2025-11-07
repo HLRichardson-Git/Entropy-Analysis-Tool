@@ -35,6 +35,19 @@ struct ProcessHistogramCommand {
     int oeIndex;
 };
 
+struct ConvertAndRunNonIidTestCommand {
+    int oeIndex;
+    int subHistIndex;
+    std::filesystem::path inputFile;
+    std::filesystem::path* convertedFilePath;
+    double minValue;
+    double maxValue;
+    std::filesystem::path* outputFile;
+    std::string* result;
+    NonIidParsedResults* nonIidParsedResults;
+    TestTimer* testTimer;
+};
+
 struct RunNonIidTestCommand {
     std::filesystem::path inputFile;
     std::filesystem::path*outputFile;
@@ -69,6 +82,7 @@ using AppCommand = std::variant<
     AddOECommand,
     DeleteOECommand,
     ProcessHistogramCommand,
+    ConvertAndRunNonIidTestCommand,
     RunNonIidTestCommand,
     RunRestartTestCommand,
     FindPassingDecimationCommand

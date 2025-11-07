@@ -377,16 +377,14 @@ void HeuristicManager::Render() {
                     ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_LIGHT_GREY);
                     {
                         if (ImGui::Button(std::string(reinterpret_cast<const char*>(u8"\uf83e")).c_str())) {
-                            std::filesystem::path inputFile = oe->heuristicData.mainHistogram.heuristicFilePath;
-                            std::filesystem::path& convertedFile = sub.nonIidSampleFilePath;
-                            double minValue = sub.rect.X.Min;
-                            double maxValue = sub.rect.X.Max;
-                            int subHistIndex = sub.subHistIndex;
-                            m_dataManager->ConvertDecimalFile(inputFile, convertedFile, minValue, maxValue, subHistIndex);
-
                             if (m_onCommand) {
-                                m_onCommand(RunNonIidTestCommand{
-                                    sub.nonIidSampleFilePath,
+                                m_onCommand(ConvertAndRunNonIidTestCommand{
+                                    m_uiState->selectedOEIndex,
+                                    sub.subHistIndex,
+                                    oe->heuristicData.mainHistogram.heuristicFilePath,
+                                    &sub.nonIidSampleFilePath,
+                                    sub.rect.X.Min,
+                                    sub.rect.X.Max,
                                     &sub.nonIidResultFilePath,
                                     &sub.nonIidResult,
                                     &sub.nonIidParsedResults,

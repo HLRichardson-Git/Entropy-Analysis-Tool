@@ -88,6 +88,55 @@ void Application::Update() {
                         uiManager.PushNotification(std::string("Histogram processing failed: ") + e.what(), 5.0f, ImVec4(1,0,0,1));
                     }
                 });
+            } else if constexpr (std::is_same_v<T, ConvertAndRunNonIidTestCommand>) {
+                GetThreadPool().Enqueue([this, cmd = command] {
+                    try {
+                        // Step 1: Convert
+                        uiManager.PushNotification("Converting sub-histogram...", 3.0f, ImVec4(0,0.5,1,1));
+                        
+                        if (!dataManager.ConvertDecimalFile(
+                                cmd.inputFile,
+                                *cmd.convertedFilePath,
+                                cmd.minValue,
+                                cmd.maxValue,
+                                cmd.subHistIndex)) 
+                        {
+                            uiManager.PushNotification("Failed to convert file.", 5.0f, ImVec4(1,0,0,1));
+                            return;
+                        }
+                        
+                        // Step 2: Run test
+                        uiManager.PushNotification("Running Non-IID test...", 3.0f, ImVec4(0,0.5,1,1));
+                        
+                        std::string linuxPath = toWslCommandPath(*cmd.convertedFilePath);
+                        std::string wslCmd = "wsl ea_non_iid -v " + linuxPath;
+
+                        cmd.testTimer->StartTestsTimer();
+
+                        std::string output = executeCommand(wslCmd);
+                        
+                        std::string resultFilename = cmd.convertedFilePath->stem().string() + "_nonIidResult.txt";
+                        std::filesystem::path logFile = cmd.convertedFilePath->parent_path() / resultFilename;
+                        writeStringToFile(output, logFile);
+
+                        *cmd.result = output;
+                        *cmd.outputFile = logFile;
+
+                        if (!cmd.nonIidParsedResults->ParseResult(output)) {
+                            uiManager.PushNotification("Warning: Could not parse test results", 5.0f, ImVec4(1,0.5,0,1));
+                        }
+
+                        cmd.testTimer->StopTestsTimer();
+
+                        uiManager.PushNotification("Non-IID test completed.", 3.0f, ImVec4(0,1,0,1));
+                        
+                    } catch (const std::exception& e) {
+                        uiManager.PushNotification(
+                            std::string("Test failed: ") + e.what(), 
+                            5.0f, 
+                            ImVec4(1,0,0,1));
+                    }
+                });
             } else if constexpr (std::is_same_v<T, RunNonIidTestCommand>) {
                 // Enqueue work
                 GetThreadPool().Enqueue([this, cmd = command] {
