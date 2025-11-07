@@ -520,13 +520,74 @@ void DataManager::UpdateOEsForProject(Project& project) {
         if (fs::exists(oldDir) && oldDir != newDir) {
             try {
                 fs::rename(oldDir, newDir);
-                // Update main histogram file path if needed
+                
+                // Update main histogram file paths
                 auto& mainHist = oe.heuristicData.mainHistogram;
                 if (!mainHist.heuristicFilePath.empty()) {
                     fs::path oldPath = mainHist.heuristicFilePath;
                     if (oldPath.string().find(oldDir.string()) == 0) {
                         fs::path rel = fs::relative(oldPath, oldDir);
                         mainHist.heuristicFilePath = (newDir / rel).string();
+                    }
+                }
+                
+                if (!mainHist.convertedFilePath.empty()) {
+                    fs::path oldPath = mainHist.convertedFilePath;
+                    if (oldPath.string().find(oldDir.string()) == 0) {
+                        fs::path rel = fs::relative(oldPath, oldDir);
+                        mainHist.convertedFilePath = (newDir / rel).string();
+                    }
+                }
+                
+                // Update subhistogram file paths
+                for (auto& subHist : mainHist.subHists) {
+                    if (!subHist.nonIidSampleFilePath.empty()) {
+                        fs::path oldPath = subHist.nonIidSampleFilePath;
+                        if (oldPath.string().find(oldDir.string()) == 0) {
+                            fs::path rel = fs::relative(oldPath, oldDir);
+                            subHist.nonIidSampleFilePath = (newDir / rel).string();
+                        }
+                    }
+                    
+                    if (!subHist.nonIidResultFilePath.empty()) {
+                        fs::path oldPath = subHist.nonIidResultFilePath;
+                        if (oldPath.string().find(oldDir.string()) == 0) {
+                            fs::path rel = fs::relative(oldPath, oldDir);
+                            subHist.nonIidResultFilePath = (newDir / rel).string();
+                        }
+                    }
+                }
+                
+                auto& statisticData = oe.statisticData;
+                if (!statisticData.nonIidSampleFilePath.empty()) {
+                    fs::path oldPath = statisticData.nonIidSampleFilePath;
+                    if (oldPath.string().find(oldDir.string()) == 0) {
+                        fs::path rel = fs::relative(oldPath, oldDir);
+                        statisticData.nonIidSampleFilePath = (newDir / rel).string();
+                    }
+                }
+                
+                if (!statisticData.nonIidResultFilePath.empty()) {
+                    fs::path oldPath = statisticData.nonIidResultFilePath;
+                    if (oldPath.string().find(oldDir.string()) == 0) {
+                        fs::path rel = fs::relative(oldPath, oldDir);
+                        statisticData.nonIidResultFilePath = (newDir / rel).string();
+                    }
+                }
+                
+                if (!statisticData.restartSampleFilePath.empty()) {
+                    fs::path oldPath = statisticData.restartSampleFilePath;
+                    if (oldPath.string().find(oldDir.string()) == 0) {
+                        fs::path rel = fs::relative(oldPath, oldDir);
+                        statisticData.restartSampleFilePath = (newDir / rel).string();
+                    }
+                }
+                
+                if (!statisticData.restartResultFilePath.empty()) {
+                    fs::path oldPath = statisticData.restartResultFilePath;
+                    if (oldPath.string().find(oldDir.string()) == 0) {
+                        fs::path rel = fs::relative(oldPath, oldDir);
+                        statisticData.restartResultFilePath = (newDir / rel).string();
                     }
                 }
             } catch (const std::exception& e) {

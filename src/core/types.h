@@ -67,7 +67,7 @@ struct NonIidParsedResults {
         }
         
         // Extract min entropy
-        std::regex min_entropy_pattern(R"(min\(H_original, (\d+) X H_bitstring\):\s*([\d.]+))");
+        std::regex min_entropy_pattern(R"(min\(H_original, (?:\d+) X H_bitstring\):\s*([\d.]+))");
         std::smatch min_entropy_match;
         if (std::regex_search(rawResultsOutput, min_entropy_match, min_entropy_pattern)) {
             try {
