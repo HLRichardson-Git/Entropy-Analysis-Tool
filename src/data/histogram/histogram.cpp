@@ -113,6 +113,12 @@ MainHistogram computeHistogramFromFile(const fs::path& filePath) {
         return hist;
     }
 
+    // Add padding - 5% of range on each side
+    int range = maxVal - minVal;
+    int padding = static_cast<int>(range * 0.05); // 5% padding
+    minVal -= padding;
+    maxVal += padding;
+
     hist.minValue = minVal;
     hist.maxValue = maxVal;
     hist.binWidth = static_cast<double>(maxVal - minVal) / MainHistogram::binCount;
