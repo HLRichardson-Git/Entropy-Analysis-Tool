@@ -31,6 +31,7 @@ private:
     // Render Utility
     void RenderMenuBar();
     void RenderHelpWindow();
+    void RenderJentFileConverterPopup();
 
     //Notifications
     void RenderNotifications();

@@ -370,6 +370,13 @@ void UIManager::RenderMenuBar() {
             // TODO: Add options
             ImGui::EndMenu();
         }
+
+        if (ImGui::BeginMenu("Tools")) {
+            if (ImGui::MenuItem("JENT File Converter")) {
+                uiState.showFileConverterPopup = true;
+            }
+            ImGui::EndMenu();
+        }
         
         if (ImGui::BeginMenu("Help")) {
             if (ImGui::MenuItem("Show Help", "F1")) {
@@ -486,6 +493,10 @@ void UIManager::RenderPopups(){
             uiState.editOEPopupOpen = false;
         }
     }
+
+    if (uiState.showFileConverterPopup) {
+        RenderJentFileConverterPopup();
+    }
 }
 
 NewProjectFormResult UIManager::RenderNewProjectPopup() {
@@ -500,6 +511,7 @@ NewProjectFormResult UIManager::RenderNewProjectPopup() {
         ImGui::OpenPopup("New Project");
     }
 
+    ImGui::PushFont(Config::normal);
     if (ImGui::BeginPopupModal("New Project", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::Text("Vendor:");
         if (ImGui::BeginCombo("##vendor", m_config->vendorsList[selectedVendorIndex].c_str())) {
@@ -519,7 +531,20 @@ NewProjectFormResult UIManager::RenderNewProjectPopup() {
         ImGui::Text("Project Name:");
         ImGui::InputText("##project", projectName, IM_ARRAYSIZE(projectName));
 
-        if (ImGui::Button("Create")) {
+        ImGuiSpacing(1);
+        ImGui::Separator();
+
+        // Action buttons
+        float buttonWidth = 120.0f;
+        float spacing = 10.0f;
+
+        // Save button
+        ImGui::PushFont(Config::fontH3);
+        ImGui::PushStyleColor(ImGuiCol_Button,        Config::GREEN_BUTTON.normal);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::GREEN_BUTTON.hovered);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREEN_BUTTON.active);
+        ImGui::BeginDisabled(strlen(repoName) == 0 || strlen(projectName) == 0);
+        if (ImGui::Button((std::string(reinterpret_cast<const char*>(u8"\uf067")) + " Create").c_str(), ImVec2(buttonWidth, 0))) {
             result.submitted = true;
             result.vendor = m_config->vendorsList[selectedVendorIndex];
             result.repo = repoName;
@@ -527,16 +552,27 @@ NewProjectFormResult UIManager::RenderNewProjectPopup() {
             ImGui::CloseCurrentPopup();
             uiState.newProjectPopupOpen = false; // reset flag
         }
+        ImGui::EndDisabled();
+        ImGui::PopStyleColor(3);
 
-        ImGui::SameLine();
-        if (ImGui::Button("Cancel")) {
+        ImGui::SameLine(0, spacing);
+
+        // Cancel button
+        ImGui::PushStyleColor(ImGuiCol_Button,        Config::GREY_BUTTON.normal);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::GREY_BUTTON.hovered);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREY_BUTTON.active);
+        ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_DARK_CHARCOAL);
+        if (ImGui::Button((std::string(reinterpret_cast<const char*>(u8"\uf00d")) + " Cancel").c_str(), ImVec2(buttonWidth, 0))) {
             result.submitted = false;
             ImGui::CloseCurrentPopup();
             uiState.newProjectPopupOpen = false; // reset flag
         }
+        ImGui::PopStyleColor(4);
+        ImGui::PopFont();
 
         ImGui::EndPopup();
     }
+    ImGui::PopFont();
 
     return result;
 }
@@ -551,6 +587,7 @@ LoadProjectFormResult UIManager::RenderLoadProjectPopup() {
     static bool projectSelected = false;
     static std::string selectedPath;
 
+    ImGui::PushFont(Config::normal);
     if (ImGui::BeginPopupModal("Load Project", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::Text("Select a Project:");
 
@@ -583,15 +620,30 @@ LoadProjectFormResult UIManager::RenderLoadProjectPopup() {
             }
         }
 
+        ImGuiSpacing(1);
         ImGui::Separator();
-        if (ImGui::Button("Cancel")) {
+
+        // Action buttons
+        float buttonWidth = 120.0f;
+        float spacing = 10.0f;
+
+        // Cancel button
+        ImGui::PushFont(Config::fontH3);
+        ImGui::PushStyleColor(ImGuiCol_Button,        Config::GREY_BUTTON.normal);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::GREY_BUTTON.hovered);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREY_BUTTON.active);
+        ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_DARK_CHARCOAL);
+        if (ImGui::Button((std::string(reinterpret_cast<const char*>(u8"\uf00d")) + " Cancel").c_str(), ImVec2(buttonWidth, 0))) {
             result.submitted = false;
             ImGui::CloseCurrentPopup();
             uiState.loadProjectPopupOpen = false;
         }
+        ImGui::PopStyleColor(4);
+        ImGui::PopFont();
 
         ImGui::EndPopup();
     }
+    ImGui::PopFont();
 
     // Handle load *after* UI cleanup
     if (projectSelected) {
@@ -613,14 +665,58 @@ AddOEFormResult UIManager::RenderAddOEPopup() {
         ImGui::OpenPopup("Add Operational Environment");
     }
 
+    ImGui::PushFont(Config::normal);
     if (ImGui::BeginPopupModal("Add Operational Environment", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::Text("Enter a name for the new OE:");
+        // Title
+        ImGui::PushFont(Config::fontH2_Bold);
+        ImGui::Text("Add OE");
+        ImGui::PopFont();
+        ImGui::Spacing();
 
+        // Input field
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Name:");
+        ImGui::SameLine();
         static char oeNameBuffer[128] = "";
-        ImGui::InputText("OE Name", oeNameBuffer, IM_ARRAYSIZE(oeNameBuffer));
 
-        // Buttons
-        if (ImGui::Button("Add")) {
+        // Set default name if buffer is empty
+        if (strlen(oeNameBuffer) == 0) {
+            int defaultIndex = (int)m_currentProject->operationalEnvironments.size() + 1; // OE x
+            snprintf(oeNameBuffer, sizeof(oeNameBuffer), "OE %d", defaultIndex);
+        }
+
+        ImGui::InputText("##OEName", oeNameBuffer, IM_ARRAYSIZE(oeNameBuffer));
+
+        // Check for duplicates
+        bool duplicateName = false;
+        for (const auto& oe : m_currentProject->operationalEnvironments) {
+            if (oe.oeName == oeNameBuffer) {
+                duplicateName = true;
+                break;
+            }
+        }
+
+        ImGuiSpacing(1);
+        ImGui::Separator();
+
+        // Show warning if duplicate
+        if (duplicateName) {
+            ImGui::TextColored(ImVec4(1, 0.5f, 0, 1), "Cannot add OE: name already exists!");
+        }
+
+        // Action buttons
+        float buttonWidth = 120.0f;
+        float spacing = 10.0f;
+
+        // Save button
+        ImGui::PushFont(Config::fontH3);
+        ImGui::PushStyleColor(ImGuiCol_Button,        Config::GREEN_BUTTON.normal);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::GREEN_BUTTON.hovered);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREEN_BUTTON.active);
+
+        // Disable if empty or duplicate
+        ImGui::BeginDisabled(strlen(oeNameBuffer) == 0 || duplicateName);
+        if (ImGui::Button((std::string(reinterpret_cast<const char*>(u8"\uf067")) + " Add").c_str(), ImVec2(buttonWidth, 0))) {
             result.submitted = true;
             result.oeName = oeNameBuffer;
 
@@ -628,18 +724,29 @@ AddOEFormResult UIManager::RenderAddOEPopup() {
             uiState.addOEPopupOpen = false;
             std::fill(std::begin(oeNameBuffer), std::end(oeNameBuffer), 0); // clear input
         }
+        ImGui::EndDisabled();
+        ImGui::PopStyleColor(3);
 
-        ImGui::SameLine();
-        if (ImGui::Button("Cancel")) {
+        ImGui::SameLine(0, spacing);
+
+        // Cancel button
+        ImGui::PushStyleColor(ImGuiCol_Button,        Config::GREY_BUTTON.normal);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::GREY_BUTTON.hovered);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREY_BUTTON.active);
+        ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_DARK_CHARCOAL);
+        if (ImGui::Button((std::string(reinterpret_cast<const char*>(u8"\uf00d")) + " Cancel").c_str(), ImVec2(buttonWidth, 0))) {
             result.submitted = false;
 
             ImGui::CloseCurrentPopup();
             uiState.addOEPopupOpen = false;
             std::fill(std::begin(oeNameBuffer), std::end(oeNameBuffer), 0); // clear input
         }
+        ImGui::PopStyleColor(4);
+        ImGui::PopFont();
 
         ImGui::EndPopup();
     }
+    ImGui::PopFont();
 
     return result;
 }
@@ -665,7 +772,8 @@ EditOEFormResult UIManager::RenderEditOEPopup() {
     }
 
     ImGui::SetNextWindowSize(ImVec2(450, 0), ImGuiCond_Appearing);
-    if (ImGui::BeginPopupModal("Edit Operational Environment", nullptr, ImGuiWindowFlags_NoResize)) {
+    ImGui::PushFont(Config::normal);
+    if (ImGui::BeginPopupModal("Edit Operational Environment", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
 
         // Title
         ImGui::PushFont(Config::fontH2_Bold);
@@ -763,9 +871,119 @@ EditOEFormResult UIManager::RenderEditOEPopup() {
 
         ImGui::EndPopup();
     }
+    ImGui::PopFont();
 
     return result;
 }
+
+void UIManager::RenderJentFileConverterPopup() {
+    static std::filesystem::path inputFilePath;
+    static bool conversionDone = false;
+    static std::string statusMessage;
+
+    const ImVec2 buttonSize = ImVec2(150, 35);
+    const auto& buttonPalette = Config::GREEN_BUTTON;
+    const ImVec4 textColor = ImVec4(1, 1, 1, 1);
+
+    if (uiState.showFileConverterPopup)
+        ImGui::OpenPopup("JENT File Converter");
+
+    ImGui::SetNextWindowSizeConstraints(ImVec2(400, 300), ImVec2(FLT_MAX, FLT_MAX));
+    
+    ImGui::PushFont(Config::normal);
+    if (ImGui::BeginPopupModal("JENT File Converter", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        // --- Title ---
+        ImGui::PushFont(Config::fontH2_Bold);
+        ImGui::Text("JENT File Converter");
+        ImGui::PopFont();
+        ImGui::Spacing();
+
+        // --- Input File ---
+        ImGui::PushFont(Config::fontH2_Bold);
+        ImGui::Text("Input File:");
+        ImGui::PopFont();
+
+        if (auto file = FileSelector(
+            "SelectJENTInputDlg",
+            "Select Input",
+            "All Files (*.*){.*}",
+            ".",
+            buttonSize,
+            buttonPalette,
+            textColor))
+        {
+            inputFilePath = *file;
+            conversionDone = false;
+            statusMessage.clear();
+        }
+
+        if (!inputFilePath.empty()) {
+            ImGui::TextWrapped("%s", inputFilePath.string().c_str());
+        } else {
+            ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "No input file selected");
+        }
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        // --- Convert Button ---
+        bool canConvert = !inputFilePath.empty();
+        if (!canConvert)
+            ImGui::BeginDisabled();
+
+        if (ImGui::Button("Convert", ImVec2(120, 0))) {
+            std::filesystem::path outputFilePath = inputFilePath;
+            outputFilePath.replace_extension(".bin");
+
+            bool ok = m_dataManager->ConvertDecimalFile(inputFilePath, outputFilePath);
+            conversionDone = true;
+
+            if (ok) {
+                statusMessage = "Conversion successful!\nSaved to: " + outputFilePath.string();
+            } else {
+                statusMessage = "Conversion failed.";
+            }
+        }
+
+        if (!canConvert)
+            ImGui::EndDisabled();
+
+        ImGui::Spacing();
+
+        // --- Status Message ---
+        if (conversionDone) {
+            ImVec4 color = statusMessage.starts_with("Conversion successful!")
+                ? ImVec4(0.2f, 0.9f, 0.2f, 1.0f)
+                : ImVec4(0.9f, 0.2f, 0.2f, 1.0f);
+            ImGui::TextColored(color, "%s", statusMessage.c_str());
+        }
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        // --- Cancel Button ---
+        ImGui::PushFont(Config::fontH3);
+        ImGui::PushStyleColor(ImGuiCol_Button,        Config::GREY_BUTTON.normal);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Config::GREY_BUTTON.hovered);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  Config::GREY_BUTTON.active);
+        ImGui::PushStyleColor(ImGuiCol_Text, Config::TEXT_DARK_CHARCOAL);
+        if (ImGui::Button((std::string(reinterpret_cast<const char*>(u8"\uf00d")) + " Close").c_str(), ImVec2(120, 0))) {
+            ImGui::CloseCurrentPopup();
+            uiState.showFileConverterPopup = false;
+            inputFilePath.clear();
+            conversionDone = false;
+            statusMessage.clear();
+        }
+        ImGui::PopStyleColor(4);
+        ImGui::PopFont();
+
+        ImGui::EndPopup();
+    }
+    ImGui::PopFont();
+}
+
 
 //UI Elements
 void UIManager::ImGuiSpacing(int count) {

@@ -6,6 +6,7 @@
 #include <queue>
 #include <filesystem>
 
+#include "../types.h"
 #include <lib90b/non_iid.h>
 
 struct OpenProjectCommand {
@@ -34,23 +35,35 @@ struct ProcessHistogramCommand {
     int oeIndex;
 };
 
-struct RunStatisticalTestCommand {
+struct ConvertAndRunNonIidTestCommand {
     int oeIndex;
-    int subHistIndex = 0;
-
-    std::filesystem::path inputFile;   
-    std::shared_ptr<lib90b::NonIidResult> output;
-
-    std::optional<double> minValue;
-    std::optional<double> maxValue;
+    int subHistIndex;
+    std::filesystem::path inputFile;
+    std::filesystem::path* convertedFilePath;
+    double minValue;
+    double maxValue;
+    std::filesystem::path* outputFile;
+    std::string* result;
+    NonIidParsedResults* nonIidParsedResults;
+    TestTimer* testTimer;
 };
 
 struct RunNonIidTestCommand {
-    int oeIndex;
+    std::filesystem::path inputFile;
+    std::filesystem::path*outputFile;
+    std::string* result;
+    NonIidParsedResults* nonIidParsedResults;
+
+    TestTimer* testTimer;
 };
 
 struct RunRestartTestCommand {
-    int oeIndex;
+    double minEntropy;
+    std::filesystem::path inputFile;
+    std::filesystem::path* outputFile;
+    std::string* result;
+
+    TestTimer* testTimer;
 };
 
 struct FindPassingDecimationCommand {
@@ -58,6 +71,8 @@ struct FindPassingDecimationCommand {
 
     std::filesystem::path inputFile;
     std::shared_ptr<std::string> output;
+
+    TestTimer* testTimer;
 };
 
 using AppCommand = std::variant<
@@ -67,7 +82,7 @@ using AppCommand = std::variant<
     AddOECommand,
     DeleteOECommand,
     ProcessHistogramCommand,
-    RunStatisticalTestCommand,
+    ConvertAndRunNonIidTestCommand,
     RunNonIidTestCommand,
     RunRestartTestCommand,
     FindPassingDecimationCommand

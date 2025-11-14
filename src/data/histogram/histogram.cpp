@@ -113,6 +113,12 @@ MainHistogram computeHistogramFromFile(const fs::path& filePath) {
         return hist;
     }
 
+    // Add padding - 5% of range on each side
+    int range = maxVal - minVal;
+    int padding = static_cast<int>(range * 0.05); // 5% padding
+    minVal -= padding;
+    maxVal += padding;
+
     hist.minValue = minVal;
     hist.maxValue = maxVal;
     hist.binWidth = static_cast<double>(maxVal - minVal) / MainHistogram::binCount;
@@ -137,6 +143,31 @@ MainHistogram computeHistogramFromFile(const fs::path& filePath) {
 
     for (const auto& localBin : localBins) {
         for (size_t i = 0; i < MainHistogram::binCount; ++i) hist.binCounts[i] += localBin[i];
+    }
+
+    // Gaussian smoothing for smoother histogram rendering
+    {
+        std::vector<double> smoothed(MainHistogram::binCount);
+        const double sigma = 1.5;  // tweak for more/less smoothing (1.0 = subtle, 2.5 = very smooth)
+        const int radius = static_cast<int>(std::ceil(3 * sigma));
+
+        for (size_t i = 0; i < MainHistogram::binCount; ++i) {
+            double sum = 0.0;
+            double weightSum = 0.0;
+            for (int j = -radius; j <= radius; ++j) {
+                int idx = static_cast<int>(i) + j;
+                if (idx >= 0 && idx < MainHistogram::binCount) {
+                    double w = std::exp(-0.5 * (j * j) / (sigma * sigma));
+                    sum += static_cast<double>(hist.binCounts[idx]) * w;
+                    weightSum += w;
+                }
+            }
+            smoothed[i] = sum / weightSum;
+        }
+
+        // Copy back to int bins (or store separately if you want a toggle)
+        for (size_t i = 0; i < MainHistogram::binCount; ++i)
+            hist.binCounts[i] = static_cast<int>(smoothed[i]);
     }
 
     return hist;

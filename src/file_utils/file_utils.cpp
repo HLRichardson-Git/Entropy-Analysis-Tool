@@ -77,7 +77,7 @@ std::optional<fs::path> CopyFileToDirectory(const fs::path& sourcePath, const fs
 
         fs::create_directories(destDir);
 
-        fs::path destPath = destDir / sourcePath.filename();
+        fs::path destPath = (destDir / sourcePath.filename()).make_preferred();
         fs::copy_file(sourcePath, destPath, fs::copy_options::overwrite_existing);
 
         return destPath;
