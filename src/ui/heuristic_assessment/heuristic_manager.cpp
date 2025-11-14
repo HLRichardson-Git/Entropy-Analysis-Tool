@@ -215,7 +215,7 @@ void HeuristicManager::Render() {
         auto& hist = oe->heuristicData.mainHistogram;
         bool hasData = std::any_of(hist.binCounts.begin(), hist.binCounts.end(), [](int c){ return c > 0; });
 
-        std::string plotLabel = "##MainHistogramPlot_" + oe->oeName;
+        std::string plotLabel = "Main Histogram - " + oe->oeName;
         if (ImPlot::BeginPlot(plotLabel.c_str(), ImVec2(-1, 300))) {
             ImPlot::SetupAxes("Value", "Frequency", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
 
@@ -354,11 +354,11 @@ void HeuristicManager::Render() {
             std::string childLabel = "SubHistogramChild_" + std::to_string(i);
             ImGui::BeginChild(childLabel.c_str(), ImVec2(-1, 260), true);
             {
+                std::string regionTitle = "Region " + std::to_string(sub.subHistIndex);
+
                 // Left column: metadata + buttons
                 ImGui::BeginChild(("SubMeta_" + std::to_string(i)).c_str(), ImVec2(sidebarWidth - 10.0f, -1), false);
                 {
-                    std::string regionTitle = "Region " + std::to_string(sub.subHistIndex);
-
                     ImGui::PushFont(Config::fontH3_Bold);
                     ImGui::Text(regionTitle.c_str());
                     ImGui::PopFont();
@@ -480,7 +480,7 @@ void HeuristicManager::Render() {
                 // Right column (plot)
                 ImGui::BeginChild(("SubPlot_" + std::to_string(i)).c_str(), ImVec2(-1, -1), false);
                 {
-                    std::string plotLabel = "##SubHistogramPlot_" + std::to_string(i);
+                    std::string plotLabel = "Sub-Histogram - " + regionTitle;
                     if (ImPlot::BeginPlot(plotLabel.c_str(), ImVec2(-1, -1))) {
                         ImPlot::SetupAxes("Value", "Frequency", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
                         if (!xs.empty()) {
