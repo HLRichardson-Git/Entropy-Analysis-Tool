@@ -4,6 +4,7 @@
 #include <iostream>
 #include <string>
 #include <algorithm>
+#include <regex>
 
 #include "../../file_utils/file_utils.h"
 
@@ -49,11 +50,38 @@ std::string parsePerlOutputString(const std::string& output) {
     }
 }
 
+static std::string getScriptVersion() {
+    std::regex version_pattern(
+        "# find-first-passing-decimation\\.pl version (\\d+)\\.(\\d+)\\.(\\d+)"
+    );
+
+    auto winPath = std::filesystem::path("\\\\wsl$\\Ubuntu-24.04") / "home/user/tools/find-first-passing-decimation.pl";
+    std::ifstream in(winPath);
+    if (!in) return "Unknown version!";
+
+    std::string line;
+    std::smatch match;
+
+    while (std::getline(in, line)) {
+        if (std::regex_search(line, match, version_pattern)) {
+            return match[1].str() + "." + match[2].str() + "." + match[3].str();
+        }
+    }
+
+    return "Unknown version";
+}
+
 std::string findFirstPassingDecimation(const std::filesystem::path& filepath) {
+    std::string output = "";
+
+    // find the scripts version number
+    std::string scriptVersion = getScriptVersion();
+    output += "find-first-passing-decimation.pl version " + scriptVersion + "\n";
+
     std::string linuxPath = toWslCommandPath(filepath);
     std::string cmd = "wsl perl /home/user/tools/find-first-passing-decimation.pl " + linuxPath + " 24 2>&1";
 
-    std::string output = executeCommand(cmd);
+    output += executeCommand(cmd);
     std::string resultString = parsePerlOutputString(output);
     
     std::filesystem::path logFile = filepath.parent_path() / "firstPassingDecimationResult.txt";
