@@ -20,7 +20,7 @@ namespace Config {
 
     // Application info
     constexpr const char* APPLICATION_TITLE = "Entropy Analysis Tool";
-    constexpr const char* APPLICATION_VERSION = "2.0.0";
+    constexpr const char* APPLICATION_VERSION = "2.1.0";
     
     // Window settings
     constexpr int DEFAULT_WINDOW_WIDTH = 1280;
@@ -123,8 +123,8 @@ namespace Config {
     };
 
     struct AppConfig {
-        const char* APPLICATION_TITLE = "Entropy Analysis Tool";
-        const char* APPLICATION_VERSION = "0.1.0";
+        const char* APPLICATION_TITLE = APPLICATION_TITLE;
+        const char* APPLICATION_VERSION = APPLICATION_VERSION;
         Project lastOpenedProject;
         std::vector<Project> savedProjects;
         std::vector<std::string> vendorsList;

@@ -31,7 +31,7 @@ void HeuristicManager::Render() {
     // Sidebar: Selected sub-histograms (was regions)
     // ---------------------------------------------------------------------
     ImGui::PushStyleColor(ImGuiCol_ChildBg, Config::LIGHT_BACKGROUND_COLOR);
-    ImGui::BeginChild("SelectMainHistogramRegions", ImVec2(sidebarWidth, 460), true);
+    ImGui::BeginChild("SelectMainHistogramRegions", ImVec2(sidebarWidth, 482), true);
     {
         ImGui::PushFont(Config::fontH3_Bold);
         std::string selectMainHistogramRegionsTitle = std::string(reinterpret_cast<const char*>(u8"\uf0fe")) + "  Selected Regions";
@@ -120,7 +120,7 @@ void HeuristicManager::Render() {
     // ---------------------------------------------------------------------
     // Main histogram area + top-right buttons
     // ---------------------------------------------------------------------
-    ImGui::BeginChild("MainHistogram", ImVec2(mainWidth - 10.0f, 460), true);
+    ImGui::BeginChild("MainHistogram", ImVec2(mainWidth - 10.0f, 482), true);
     {
         ImGui::PushFont(Config::fontH3_Bold);
         std::string mainHeuristicTitle = std::string(reinterpret_cast<const char*>(u8"\uf1fe")) + "  Main Histogram - " + oe->oeName;
@@ -261,6 +261,16 @@ void HeuristicManager::Render() {
         if (hist.nonIidParsedResults.minEntropy != 0.0f) {
             const auto& res = hist.nonIidParsedResults;
 
+            if (res.sampleCount != 0) {
+                ImGui::TextDisabled("(Samples)");
+                ImGui::SameLine();
+                char buf[32];
+                snprintf(buf, sizeof(buf), "%d", res.sampleCount);
+                ImVec2 textSize = ImGui::CalcTextSize(buf);
+                if (ImGui::Selectable(buf, false, 0, textSize)) ImGui::SetClipboardText(buf);
+                ImGui::SameLine();
+            }
+
             if (res.h_original != 0.0f) {
                 ImGui::TextDisabled("(H_original)");
                 ImGui::SameLine();
@@ -288,6 +298,15 @@ void HeuristicManager::Render() {
                 snprintf(buf, sizeof(buf), "%.6f", res.minEntropy);
                 ImVec2 textSize = ImGui::CalcTextSize(buf);
                 if (ImGui::Selectable(buf, false, 0, textSize)) ImGui::SetClipboardText(buf);
+            }
+
+            if (!res.sha256Hash.empty()) {
+                ImGui::TextDisabled("(SHA-256)");
+                ImGui::SameLine();
+                char sha_buf[72];
+                snprintf(sha_buf, sizeof(sha_buf), "%s", res.sha256Hash.c_str());
+                ImVec2 shaTextSize = ImGui::CalcTextSize(sha_buf);
+                if (ImGui::Selectable(sha_buf, false, 0, shaTextSize)) ImGui::SetClipboardText(sha_buf);
             }
 
         } else if (hist.testTimer.testRunning) {
@@ -415,16 +434,23 @@ void HeuristicManager::Render() {
                     ImGui::BulletText("Min: %u", sub.minValue);
                     ImGui::BulletText("Max: %u", sub.maxValue);
 
-                    int subBinCount = std::max(0, binMax - binMin + 1);
-                    ImGui::BulletText("Bins: %d", subBinCount);
-                    ImGui::BulletText("Bin Width: %.2f", main.binWidth);
-
                     ImGui::Separator();
                     ImGui::Text("%s Non-IID results:", regionTitle.c_str());
 
                     if (sub.nonIidParsedResults.minEntropy != 0.0f) {
                         const auto& res = sub.nonIidParsedResults;
-                        
+
+                        if (res.sampleCount != 0) {
+                            ImGui::Bullet();
+                            ImGui::SameLine();
+                            ImGui::Text("Samples:");
+                            ImGui::SameLine();
+                            char buf[32];
+                            snprintf(buf, sizeof(buf), "%d", res.sampleCount);
+                            ImVec2 textSize = ImGui::CalcTextSize(buf);
+                            if (ImGui::Selectable(buf, false, 0, textSize)) ImGui::SetClipboardText(buf);
+                        }
+
                         if (res.h_original != 0.0f) {
                             ImGui::Bullet();
                             ImGui::SameLine();
