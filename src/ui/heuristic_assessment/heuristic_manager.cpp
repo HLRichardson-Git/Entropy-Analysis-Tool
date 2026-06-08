@@ -31,7 +31,7 @@ void HeuristicManager::Render() {
     // Sidebar: Selected sub-histograms (was regions)
     // ---------------------------------------------------------------------
     ImGui::PushStyleColor(ImGuiCol_ChildBg, Config::LIGHT_BACKGROUND_COLOR);
-    ImGui::BeginChild("SelectMainHistogramRegions", ImVec2(sidebarWidth, 460), true);
+    ImGui::BeginChild("SelectMainHistogramRegions", ImVec2(sidebarWidth, 482), true);
     {
         ImGui::PushFont(Config::fontH3_Bold);
         std::string selectMainHistogramRegionsTitle = std::string(reinterpret_cast<const char*>(u8"\uf0fe")) + "  Selected Regions";
@@ -120,7 +120,7 @@ void HeuristicManager::Render() {
     // ---------------------------------------------------------------------
     // Main histogram area + top-right buttons
     // ---------------------------------------------------------------------
-    ImGui::BeginChild("MainHistogram", ImVec2(mainWidth - 10.0f, 460), true);
+    ImGui::BeginChild("MainHistogram", ImVec2(mainWidth - 10.0f, 482), true);
     {
         ImGui::PushFont(Config::fontH3_Bold);
         std::string mainHeuristicTitle = std::string(reinterpret_cast<const char*>(u8"\uf1fe")) + "  Main Histogram - " + oe->oeName;
@@ -288,6 +288,15 @@ void HeuristicManager::Render() {
                 snprintf(buf, sizeof(buf), "%.6f", res.minEntropy);
                 ImVec2 textSize = ImGui::CalcTextSize(buf);
                 if (ImGui::Selectable(buf, false, 0, textSize)) ImGui::SetClipboardText(buf);
+            }
+
+            if (!res.sha256Hash.empty()) {
+                ImGui::TextDisabled("(SHA-256)");
+                ImGui::SameLine();
+                char sha_buf[72];
+                snprintf(sha_buf, sizeof(sha_buf), "%s", res.sha256Hash.c_str());
+                ImVec2 shaTextSize = ImGui::CalcTextSize(sha_buf);
+                if (ImGui::Selectable(sha_buf, false, 0, shaTextSize)) ImGui::SetClipboardText(sha_buf);
             }
 
         } else if (hist.testTimer.testRunning) {

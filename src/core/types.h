@@ -38,6 +38,7 @@ struct NonIidParsedResults {
     double minEntropy = 0.0f;
     double h_original = 0.0f;
     double h_bitstring = 0.0f;
+    std::string sha256Hash = "";
 
     bool ParseResult(const std::string& rawResultsOutput) {
         // Extract H_original
@@ -78,7 +79,14 @@ struct NonIidParsedResults {
         } else {
             return false;
         }
-        
+
+        // Extract SHA-256 hash (informational — not a failure if absent)
+        std::regex sha256_pattern(R"(SHA-256 hash ([a-fA-F0-9]+))");
+        std::smatch sha256_match;
+        if (std::regex_search(rawResultsOutput, sha256_match, sha256_pattern)) {
+            sha256Hash = sha256_match[1].str();
+        }
+
         return true;
     }
 };

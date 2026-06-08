@@ -225,6 +225,7 @@ Project DataManager::LoadProject(const std::string& filename) {
                             res.h_original  = resJson.value("H_original", res.h_original);
                             res.h_bitstring = resJson.value("H_bitstring", res.h_bitstring);
                             res.minEntropy = resJson.value("min_entropy", res.minEntropy);
+                            res.sha256Hash  = resJson.value("sha256_hash", res.sha256Hash);
                         }
 
                         mainHist.firstPassingDecimationResult = mhJson.value("firstPassingDecimationResult", "");
@@ -259,6 +260,7 @@ Project DataManager::LoadProject(const std::string& filename) {
                                 rRes.h_original  = rJson.value("H_original", rRes.h_original);
                                 rRes.h_bitstring = rJson.value("H_bitstring", rRes.h_bitstring);
                                 rRes.minEntropy = rJson.value("min_entropy", rRes.minEntropy);
+                                rRes.sha256Hash  = rJson.value("sha256_hash", rRes.sha256Hash);
                             }
 
                             sh.subHistIndex = static_cast<int>(oe.heuristicData.mainHistogram.subHists.size()) + 1;
@@ -644,6 +646,7 @@ void DataManager::UpdateOEsForProject(Project& project) {
                 if (res.h_original != 0.0f)  resJson["H_original"]  = res.h_original;
                 if (res.h_bitstring != 0.0f) resJson["H_bitstring"] = res.h_bitstring;
                 resJson["min_entropy"] = res.minEntropy;
+                if (!res.sha256Hash.empty()) resJson["sha256_hash"] = res.sha256Hash;
                 mhJson["nonIidResults"] = resJson;
             }
 
@@ -663,6 +666,7 @@ void DataManager::UpdateOEsForProject(Project& project) {
                     if (res.h_original != 0.0f)  rj["H_original"]  = res.h_original;
                     if (res.h_bitstring != 0.0f) rj["H_bitstring"] = res.h_bitstring;
                     rj["min_entropy"] = res.minEntropy;
+                    if (!res.sha256Hash.empty()) rj["sha256_hash"] = res.sha256Hash;
                     j["nonIidResults"] = rj;
                 }
                 subHistJson.push_back(j);
