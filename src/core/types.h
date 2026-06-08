@@ -39,6 +39,7 @@ struct NonIidParsedResults {
     double h_original = 0.0f;
     double h_bitstring = 0.0f;
     std::string sha256Hash = "";
+    int sampleCount = 0;
 
     bool ParseResult(const std::string& rawResultsOutput) {
         // Extract H_original
@@ -85,6 +86,13 @@ struct NonIidParsedResults {
         std::smatch sha256_match;
         if (std::regex_search(rawResultsOutput, sha256_match, sha256_pattern)) {
             sha256Hash = sha256_match[1].str();
+        }
+
+        // Extract NIST-reported sample count (informational — not a failure if absent)
+        std::regex sample_count_pattern(R"(Loaded (\d+) samples)");
+        std::smatch sample_count_match;
+        if (std::regex_search(rawResultsOutput, sample_count_match, sample_count_pattern)) {
+            try { sampleCount = std::stoi(sample_count_match[1]); } catch (...) {}
         }
 
         return true;

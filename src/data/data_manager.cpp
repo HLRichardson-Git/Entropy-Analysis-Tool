@@ -226,6 +226,7 @@ Project DataManager::LoadProject(const std::string& filename) {
                             res.h_bitstring = resJson.value("H_bitstring", res.h_bitstring);
                             res.minEntropy = resJson.value("min_entropy", res.minEntropy);
                             res.sha256Hash  = resJson.value("sha256_hash", res.sha256Hash);
+                            res.sampleCount = resJson.value("sample_count", res.sampleCount);
                         }
 
                         mainHist.firstPassingDecimationResult = mhJson.value("firstPassingDecimationResult", "");
@@ -261,6 +262,7 @@ Project DataManager::LoadProject(const std::string& filename) {
                                 rRes.h_bitstring = rJson.value("H_bitstring", rRes.h_bitstring);
                                 rRes.minEntropy = rJson.value("min_entropy", rRes.minEntropy);
                                 rRes.sha256Hash  = rJson.value("sha256_hash", rRes.sha256Hash);
+                                rRes.sampleCount = rJson.value("sample_count", rRes.sampleCount);
                             }
 
                             sh.subHistIndex = static_cast<int>(oe.heuristicData.mainHistogram.subHists.size()) + 1;
@@ -647,6 +649,7 @@ void DataManager::UpdateOEsForProject(Project& project) {
                 if (res.h_bitstring != 0.0f) resJson["H_bitstring"] = res.h_bitstring;
                 resJson["min_entropy"] = res.minEntropy;
                 if (!res.sha256Hash.empty()) resJson["sha256_hash"] = res.sha256Hash;
+                if (res.sampleCount != 0)    resJson["sample_count"] = res.sampleCount;
                 mhJson["nonIidResults"] = resJson;
             }
 
@@ -667,6 +670,7 @@ void DataManager::UpdateOEsForProject(Project& project) {
                     if (res.h_bitstring != 0.0f) rj["H_bitstring"] = res.h_bitstring;
                     rj["min_entropy"] = res.minEntropy;
                     if (!res.sha256Hash.empty()) rj["sha256_hash"] = res.sha256Hash;
+                    if (res.sampleCount != 0)    rj["sample_count"] = res.sampleCount;
                     j["nonIidResults"] = rj;
                 }
                 subHistJson.push_back(j);

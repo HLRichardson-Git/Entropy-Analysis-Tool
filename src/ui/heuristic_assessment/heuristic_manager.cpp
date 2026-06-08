@@ -261,6 +261,16 @@ void HeuristicManager::Render() {
         if (hist.nonIidParsedResults.minEntropy != 0.0f) {
             const auto& res = hist.nonIidParsedResults;
 
+            if (res.sampleCount != 0) {
+                ImGui::TextDisabled("(Samples)");
+                ImGui::SameLine();
+                char buf[32];
+                snprintf(buf, sizeof(buf), "%d", res.sampleCount);
+                ImVec2 textSize = ImGui::CalcTextSize(buf);
+                if (ImGui::Selectable(buf, false, 0, textSize)) ImGui::SetClipboardText(buf);
+                ImGui::SameLine();
+            }
+
             if (res.h_original != 0.0f) {
                 ImGui::TextDisabled("(H_original)");
                 ImGui::SameLine();
@@ -424,16 +434,23 @@ void HeuristicManager::Render() {
                     ImGui::BulletText("Min: %u", sub.minValue);
                     ImGui::BulletText("Max: %u", sub.maxValue);
 
-                    int subBinCount = std::max(0, binMax - binMin + 1);
-                    ImGui::BulletText("Bins: %d", subBinCount);
-                    ImGui::BulletText("Bin Width: %.2f", main.binWidth);
-
                     ImGui::Separator();
                     ImGui::Text("%s Non-IID results:", regionTitle.c_str());
 
                     if (sub.nonIidParsedResults.minEntropy != 0.0f) {
                         const auto& res = sub.nonIidParsedResults;
-                        
+
+                        if (res.sampleCount != 0) {
+                            ImGui::Bullet();
+                            ImGui::SameLine();
+                            ImGui::Text("Samples:");
+                            ImGui::SameLine();
+                            char buf[32];
+                            snprintf(buf, sizeof(buf), "%d", res.sampleCount);
+                            ImVec2 textSize = ImGui::CalcTextSize(buf);
+                            if (ImGui::Selectable(buf, false, 0, textSize)) ImGui::SetClipboardText(buf);
+                        }
+
                         if (res.h_original != 0.0f) {
                             ImGui::Bullet();
                             ImGui::SameLine();
